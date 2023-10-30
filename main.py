@@ -10,16 +10,12 @@ WINDOW_PADDING = 64
 IMAGE_EDGE_SIZE = (WINDOW_EDGE_SIZE // GRID_SIZE)
 
 
-class TileType:
+class TileType(Enum):
 	BLANK = auto()
 	UP = auto()
 	RIGHT = auto()
 	DOWN = auto()
 	LEFT = auto()
-
-	@classmethod
-	def values(cls):
-		return TileType.BLANK, TileType.UP, TileType.RIGHT, TileType.DOWN, TileType.LEFT
 
 
 class TkApp(tk.Tk):
@@ -46,7 +42,7 @@ class TkApp(tk.Tk):
 			tk_label = tk.Label(
 				self.frame,
 				text=f"{r},{c}",
-				image=self.tk_images.get(random.choice(TileType.values())),
+				image=self.tk_images.get(random.choice(list(TileType))),
 				highlightthickness=1,
 				width=IMAGE_EDGE_SIZE,
 				height=IMAGE_EDGE_SIZE,
