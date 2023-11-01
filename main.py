@@ -12,7 +12,7 @@ from collections import defaultdict
 from pathlib import Path
 from PIL import Image, ImageTk
 
-GRID_SIZE = 3
+GRID_SIZE = 8
 WINDOW_EDGE_SIZE = 512
 WINDOW_PADDING = 8
 IMAGE_EDGE_SIZE = (WINDOW_EDGE_SIZE // GRID_SIZE)
@@ -77,6 +77,14 @@ class TileEdges:
 		amount = amount % len(edges)
 		return TileEdges(*(edges[amount:] + edges[0:amount]))
 
+	def get_edge_id(self, edge: TileEdge):
+		match edge:
+			case TileEdge.UP: return self.up
+			case TileEdge.RIGHT: return self.right
+			case TileEdge.DOWN: return self.down
+			case TileEdge.LEFT: return self.left
+			case _: raise RuntimeError(f"Unknown edge '{edge}'.")
+
 	def __str__(self):
 		return f"\u21bb: {self.up, self.right, self.down, self.left}"
 
@@ -135,11 +143,18 @@ class TileState:
 	def create(cls, position: Vec2, initial_tiles: Tuple[ProtoTile, ...]):
 		return TileState(position=position, available_tiles=[t.make_copy() for t in initial_tiles], final_tile=None)
 
+	def prune_available_tiles(self, required_edge_id: int, in_direction: TileEdge):
+		self.available_tiles = [t for t in self.available_tiles if t.edges.get_edge_id(in_direction) == required_edge_id]
+
 	def do_collapse(self):
 		self.final_tile = random.choice(self.available_tiles)
 		if self.final_tile is None:
 			raise RuntimeError(f"Failed to collapse tile {self!s}.")
 		self.available_tiles = []
+
+	@property
+	def is_collapsed(self):
+		return self.final_tile is not None
 
 	def __str__(self):
 		return f"\u2316: {self.position}, #: {len(self.available_tiles)}, collapsed: {'y' if self.final_tile is not None else 'n'}"
@@ -154,6 +169,13 @@ class TileBoard(object):
 		TileEdge.LEFT: Vec2(0, -1),
 	}
 
+	_TILE_EDGE_CLAMP = {
+		TileEdge.UP: TileEdge.DOWN,
+		TileEdge.RIGHT: TileEdge.LEFT,
+		TileEdge.DOWN: TileEdge.UP,
+		TileEdge.LEFT: TileEdge.RIGHT,
+	}
+
 	def __init__(self, board_size: Vec2, tiles: Tuple[ProtoTile, ...]):
 		self._board_size = board_size
 		self._proto_tiles = tiles
@@ -164,7 +186,6 @@ class TileBoard(object):
 		self._board = [TileState.create(Vec2(*divmod(i, self._board_size.x)), self._proto_tiles) for i in range(board_tile_count)]
 
 		complete = False
-		steps_count = 1
 		while not complete:
 			least_available = self._find_tiles_with_least_available_tiles()
 
@@ -172,23 +193,30 @@ class TileBoard(object):
 				raise RuntimeError("No tiles found!")
 
 			picked_tile = random.choice(least_available)
-			picked_tile = self._get_tile_on_position_safe(Vec2(1,1))
+			# picked_tile = self._get_tile_on_position_safe(Vec2(1,1))
 			picked_tile.do_collapse()
 
 			# update neighbor tiles
 			neighbors = {tileEdge: self._get_tile_in_direction(picked_tile, tileEdge) for tileEdge in TileEdge}
 			print(neighbors)
 
-			# TODO: update neighbor's tiles available_tiles
+			# TODO: update neighbor's available_tiles
+			for tile_edge, neighbor in neighbors.items():
+				if neighbor is not None:
+					neighbor.prune_available_tiles(
+						picked_tile.final_tile.edges.get_edge_id(tile_edge),
+						TileBoard._TILE_EDGE_CLAMP[tile_edge]
+					)
 
-			steps_count -= 1
-			complete = steps_count <= 0
+			# TODO: this should be optimized
+			complete = next((t for t in self._board if not t.is_collapsed), None) is None
 		print(self._board)
 
 	def _find_tiles_with_least_available_tiles(self) -> list[TileState]:
 		histogram = defaultdict(list)
 		for tile in self._board:
-			histogram[len(tile.available_tiles)].append(tile)
+			if not tile.is_collapsed:
+				histogram[len(tile.available_tiles)].append(tile)
 		return histogram[min(histogram.keys())]
 
 	def _get_tile_in_direction(self, pivot_tile: TileState, direction: TileEdge) -> Optional[TileState]:
