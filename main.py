@@ -208,7 +208,6 @@ class TileBoard(object):
 						TileBoard._TILE_EDGE_CLAMP[tile_edge]
 					)
 
-			# TODO: this should be optimized
 			complete = next((t for t in self._board if not t.is_collapsed), None) is None
 		print(self._board)
 
