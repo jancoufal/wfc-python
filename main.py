@@ -23,11 +23,23 @@ class Vec2:
 	x: int
 	y: int
 
-	def add(self, p):
-		return Vec2(self.x + p.x, self.y + p.y)
+	def __add__(self, other):
+		match other:
+			case int() | float():
+				return Vec2(self.x + other, self.y + other)
+			case Vec2(_, _):
+				return Vec2(self.x + other.x, self.y + other.y)
+			case _:
+				raise RuntimeError(f"unknown type to operate with: {other}")
 
-	def mul(self, f):
-		return Vec2(self.x * f, self.y * f)
+	def __mul__(self, other):
+		match other:
+			case int() | float():
+				return Vec2(self.x * other, self.y * other)
+			case Vec2(_, _):  # element-wise multiplication, not cross-product
+				return Vec2(self.x * other.x, self.y * other.y)
+			case _:
+				raise RuntimeError(f"unknown type to operate with: {other}")
 
 	def as_tuple(self):
 		return self.x, self.y
@@ -106,6 +118,7 @@ class TileFactory(object):
 		image = Image.open(self._image_dir / image_name).resize((self._image_size, self._image_size))
 		tiles = []
 
+		# TODO: use transformations param
 		for i in range(4):
 			tiles.append(ProtoTile.create(image.rotate(i * 90), edges.make_rotate_left(i)))
 
@@ -179,7 +192,7 @@ class TileBoard(object):
 		return histogram[min(histogram.keys())]
 
 	def _get_tile_in_direction(self, pivot_tile: TileState, direction: TileEdge) -> Optional[TileState]:
-		target_position = pivot_tile.position.add(TileBoard._POSITION_MOVE_UNSAFE[direction])
+		target_position = pivot_tile.position + TileBoard._POSITION_MOVE_UNSAFE[direction]
 		return self._get_tile_on_position_safe(target_position)
 
 	def _get_tile_on_position_safe(self, position: Vec2) -> Optional[TileState]:
@@ -220,19 +233,16 @@ class TkApp(tk.Tk):
 		for tile in self.board.get_tiles():
 			if tile.final_tile is not None:
 				self.canvas.create_image(
-					*tile.position.mul(IMAGE_EDGE_SIZE).as_tuple(),
+					*(tile.position * IMAGE_EDGE_SIZE).as_tuple(),
 					anchor=tk.NW,
 					image=tile.final_tile.image_tk
 				)
 			else:
 				# draw first 4 available tiles
-				pos_delta = Vec2(IMAGE_EDGE_SIZE, IMAGE_EDGE_SIZE).mul(0.5)
+				pos_delta = Vec2(IMAGE_EDGE_SIZE, IMAGE_EDGE_SIZE) * 0.5
 				for i, available_tile in enumerate(tile.available_tiles[:4]):
 					r, c = divmod(i, 2)
-					p = Vec2(
-						tile.position.x * IMAGE_EDGE_SIZE + c * pos_delta.x,
-						tile.position.y * IMAGE_EDGE_SIZE + r * pos_delta.y
-					)
+					p = tile.position * IMAGE_EDGE_SIZE + Vec2(c, r) * pos_delta
 					self.canvas.create_image(
 						*p.as_tuple(),
 						anchor=tk.NW,
