@@ -142,10 +142,11 @@ class TileState:
 	final_tile: Optional[ProtoTile]
 	debug_picked: bool
 	debug_neighbor: bool
+	debug_edge: Optional[TileEdge]
 
 	@classmethod
 	def create(cls, iid: int, position: Vec2, initial_tiles: Tuple[ProtoTile, ...]):
-		return TileState(iid, position, [t.make_copy() for t in initial_tiles], None, False, False)
+		return TileState(iid, position, [t.make_copy() for t in initial_tiles], None, False, False, None)
 
 	def prune_available_tiles(self, required_edge_id: int, in_direction: TileEdge):
 		self.available_tiles = [t for t in self.available_tiles if t.edges.get_edge_id(in_direction) == required_edge_id]
@@ -159,8 +160,9 @@ class TileState:
 	def debug_set_picked(self, picked):
 		self.debug_picked = picked
 
-	def debug_set_neighbor(self, neighbor):
+	def debug_set_neighbor(self, neighbor, edge):
 		self.debug_neighbor = neighbor
+		self.debug_edge = edge
 
 	@property
 	def is_collapsed(self):
@@ -173,10 +175,10 @@ class TileState:
 class TileBoard(object):
 
 	_POSITION_MOVE_UNSAFE = {
-		TileEdge.UP: Vec2(-1, 0),
-		TileEdge.RIGHT: Vec2(0, +1),
-		TileEdge.DOWN: Vec2(+1, 0),
-		TileEdge.LEFT: Vec2(0, -1),
+		TileEdge.UP: Vec2(0, -1),
+		TileEdge.RIGHT: Vec2(+1, 0),
+		TileEdge.DOWN: Vec2(0, +1),
+		TileEdge.LEFT: Vec2(-1, 0),
 	}
 
 	_TILE_EDGE_CLAMP = {
@@ -219,14 +221,14 @@ class TileBoard(object):
 						picked_tile.final_tile.edges.get_edge_id(tile_edge),
 						TileBoard._TILE_EDGE_CLAMP[tile_edge]
 					)
-					neighbor.debug_set_neighbor(True)
+					neighbor.debug_set_neighbor(True, tile_edge)
 
 			event_listener()
 
 			# debug cleanup
 			for t in self._board:
 				t.debug_set_picked(False)
-				t.debug_set_neighbor(False)
+				t.debug_set_neighbor(False, None)
 
 			complete = next((t for t in self._board if not t.is_collapsed), None) is None
 			step_counter += 1
@@ -241,10 +243,10 @@ class TileBoard(object):
 
 	def _get_tile_in_direction(self, pivot_tile: TileState, direction: TileEdge) -> Optional[TileState]:
 		target_position = pivot_tile.position + TileBoard._POSITION_MOVE_UNSAFE[direction]
-		return self._get_tile_on_position_safe(target_position)
+		neighbor_tile = self._get_tile_on_position_safe(target_position)
+		return neighbor_tile if neighbor_tile is not None and not neighbor_tile.is_collapsed else None
 
 	def _get_tile_on_position_safe(self, position: Vec2) -> Optional[TileState]:
-		pos_valid = 0 <= position.x < self._board_size.x and 0 <= position.y < self._board_size.y
 		return self._board[position.x + position.y * self._board_size.x] \
 			if 0 <= position.x < self._board_size.x and 0 <= position.y < self._board_size.y \
 			else None
@@ -308,12 +310,16 @@ class TkApp(tk.Tk):
 
 		# debug outlines & id
 		for tile in self.board.get_tiles():
+			info_text = f"{tile.iid}: {tile.position}" \
+					+ f"\npicked: {tile.debug_picked}" \
+					+ f"\nis_neigh: {tile.debug_neighbor}" \
+					+ f"\nedge: {tile.debug_edge}"
 			self.canvas.create_text(
 				*(tile.position * IMAGE_EDGE_SIZE).as_tuple(),
 				anchor=tk.NW,
-				text=f"{tile.iid}:\n{tile.position}",
+				text=info_text,
 				fill="black",
-				font="Tahoma 15 bold"
+				font="Tahoma 10 bold"
 			)
 			if tile.debug_picked:
 				self.canvas.create_rectangle(
