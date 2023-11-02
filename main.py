@@ -3,6 +3,7 @@ import typing
 import math
 import random
 import tkinter as tk
+import time
 import operator
 from enum import Enum, auto
 from typing import Tuple, Optional
@@ -12,7 +13,7 @@ from collections import defaultdict
 from pathlib import Path
 from PIL import Image, ImageTk
 
-GRID_SIZE = 8
+GRID_SIZE = 5
 WINDOW_EDGE_SIZE = 512
 WINDOW_PADDING = 8
 IMAGE_EDGE_SIZE = (WINDOW_EDGE_SIZE // GRID_SIZE)
@@ -135,13 +136,16 @@ class TileFactory(object):
 
 @dataclass
 class TileState:
+	iid: int
 	position: Vec2
 	available_tiles: list[ProtoTile]
 	final_tile: Optional[ProtoTile]
+	debug_picked: bool
+	debug_neighbor: bool
 
 	@classmethod
-	def create(cls, position: Vec2, initial_tiles: Tuple[ProtoTile, ...]):
-		return TileState(position=position, available_tiles=[t.make_copy() for t in initial_tiles], final_tile=None)
+	def create(cls, iid: int, position: Vec2, initial_tiles: Tuple[ProtoTile, ...]):
+		return TileState(iid, position, [t.make_copy() for t in initial_tiles], None, False, False)
 
 	def prune_available_tiles(self, required_edge_id: int, in_direction: TileEdge):
 		self.available_tiles = [t for t in self.available_tiles if t.edges.get_edge_id(in_direction) == required_edge_id]
@@ -151,6 +155,12 @@ class TileState:
 		if self.final_tile is None:
 			raise RuntimeError(f"Failed to collapse tile {self!s}.")
 		self.available_tiles = []
+
+	def debug_set_picked(self, picked):
+		self.debug_picked = picked
+
+	def debug_set_neighbor(self, neighbor):
+		self.debug_neighbor = neighbor
 
 	@property
 	def is_collapsed(self):
@@ -177,15 +187,17 @@ class TileBoard(object):
 	}
 
 	def __init__(self, board_size: Vec2, tiles: Tuple[ProtoTile, ...]):
+		print(f"{board_size=}")
 		self._board_size = board_size
 		self._proto_tiles = tiles
 		self._board = []
 
-	def build(self):
+	def build(self, event_listener: callable):
 		board_tile_count = self._board_size.x * self._board_size.y
-		self._board = [TileState.create(Vec2(*divmod(i, self._board_size.x)), self._proto_tiles) for i in range(board_tile_count)]
+		self._board = [TileState.create(i, Vec2(*(divmod(i, self._board_size.x)[::-1])), self._proto_tiles) for i in range(board_tile_count)]
 
 		complete = False
+		step_counter = 0
 		while not complete:
 			least_available = self._find_tiles_with_least_available_tiles()
 
@@ -195,21 +207,30 @@ class TileBoard(object):
 			picked_tile = random.choice(least_available)
 			# picked_tile = self._get_tile_on_position_safe(Vec2(1,1))
 			picked_tile.do_collapse()
+			picked_tile.debug_set_picked(True)
+
+			event_listener()
 
 			# update neighbor tiles
 			neighbors = {tileEdge: self._get_tile_in_direction(picked_tile, tileEdge) for tileEdge in TileEdge}
-			print(neighbors)
-
-			# TODO: update neighbor's available_tiles
 			for tile_edge, neighbor in neighbors.items():
 				if neighbor is not None:
 					neighbor.prune_available_tiles(
 						picked_tile.final_tile.edges.get_edge_id(tile_edge),
 						TileBoard._TILE_EDGE_CLAMP[tile_edge]
 					)
+					neighbor.debug_set_neighbor(True)
+
+			event_listener()
+
+			# debug cleanup
+			for t in self._board:
+				t.debug_set_picked(False)
+				t.debug_set_neighbor(False)
 
 			complete = next((t for t in self._board if not t.is_collapsed), None) is None
-		print(self._board)
+			step_counter += 1
+		print(f"board finished in {step_counter} steps")
 
 	def _find_tiles_with_least_available_tiles(self) -> list[TileState]:
 		histogram = defaultdict(list)
@@ -223,7 +244,8 @@ class TileBoard(object):
 		return self._get_tile_on_position_safe(target_position)
 
 	def _get_tile_on_position_safe(self, position: Vec2) -> Optional[TileState]:
-		return self._board[position.y * self._board_size.x + position.x] \
+		pos_valid = 0 <= position.x < self._board_size.x and 0 <= position.y < self._board_size.y
+		return self._board[position.x + position.y * self._board_size.x] \
 			if 0 <= position.x < self._board_size.x and 0 <= position.y < self._board_size.y \
 			else None
 
@@ -242,6 +264,7 @@ class TkApp(tk.Tk):
 			height=(WINDOW_EDGE_SIZE + 0 * WINDOW_PADDING)
 		)
 		self.canvas.pack()
+		self.canvas.bind("<Button-1>", self.on_canvas_click)
 		# self.geometry(f"{WINDOW_EDGE_SIZE + WINDOW_PADDING}x{WINDOW_EDGE_SIZE + WINDOW_PADDING}")
 
 		self._tile_factory = TileFactory("img/mountains", IMAGE_EDGE_SIZE)
@@ -251,12 +274,16 @@ class TkApp(tk.Tk):
 		self.build_board()
 		self.update()
 
+	def on_canvas_click(self, event):
+		print(f"on_canvas_click: {event=}")
+
 	def build_board(self):
-		self.board.build()
+		self.board.build(lambda: self.update())
 
 	def update(self):
 		super().update()
 
+		self.canvas.delete("all")
 		for tile in self.board.get_tiles():
 			if tile.final_tile is not None:
 				self.canvas.create_image(
@@ -275,6 +302,31 @@ class TkApp(tk.Tk):
 						anchor=tk.NW,
 						image=available_tile.image_tk_mini
 					)
+
+		# debug outlines & id
+		for tile in self.board.get_tiles():
+			self.canvas.create_text(
+				*(tile.position * IMAGE_EDGE_SIZE).as_tuple(),
+				anchor=tk.NW,
+				text=f"{tile.iid}: {tile.position}",
+				fill="black",
+				font="Tahoma 15 bold"
+			)
+			if tile.debug_picked:
+				self.canvas.create_rectangle(
+					*(tile.position * IMAGE_EDGE_SIZE).as_tuple(),
+					*((tile.position + 1) * IMAGE_EDGE_SIZE).as_tuple(),
+					outline="red"
+				)
+			if tile.debug_neighbor:
+				self.canvas.create_rectangle(
+					*(tile.position * IMAGE_EDGE_SIZE).as_tuple(),
+					*((tile.position + 1) * IMAGE_EDGE_SIZE).as_tuple(),
+					outline="green"
+				)
+
+		# TODO: no, no, no!
+		time.sleep(1)
 
 
 if __name__ == "__main__":
