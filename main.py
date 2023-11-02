@@ -257,6 +257,8 @@ class TkApp(tk.Tk):
 	def __init__(self):
 		super().__init__()
 
+		self._tk_click_event = tk.IntVar()
+
 		self.title("Wave function collapse test (or Wang tiles?)")
 		self.canvas = tk.Canvas(
 			self,
@@ -276,6 +278,7 @@ class TkApp(tk.Tk):
 
 	def on_canvas_click(self, event):
 		print(f"on_canvas_click: {event=}")
+		self._tk_click_event.set(1)
 
 	def build_board(self):
 		self.board.build(lambda: self.update())
@@ -308,7 +311,7 @@ class TkApp(tk.Tk):
 			self.canvas.create_text(
 				*(tile.position * IMAGE_EDGE_SIZE).as_tuple(),
 				anchor=tk.NW,
-				text=f"{tile.iid}: {tile.position}",
+				text=f"{tile.iid}:\n{tile.position}",
 				fill="black",
 				font="Tahoma 15 bold"
 			)
@@ -325,10 +328,10 @@ class TkApp(tk.Tk):
 					outline="green"
 				)
 
-		# TODO: no, no, no!
-		time.sleep(1)
+		self.canvas.wait_variable(self._tk_click_event)
 
 
 if __name__ == "__main__":
 	tkApp = TkApp()
 	tkApp.mainloop()
+	print("done")
