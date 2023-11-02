@@ -1,5 +1,4 @@
 import typing
-
 import math
 import random
 import tkinter as tk
@@ -13,8 +12,9 @@ from collections import defaultdict
 from pathlib import Path
 from PIL import Image, ImageTk
 
-GRID_SIZE = 5
-WINDOW_EDGE_SIZE = 512
+DEBUG_MODE = False
+GRID_SIZE = 16
+WINDOW_EDGE_SIZE = 512 * 2
 WINDOW_PADDING = 8
 IMAGE_EDGE_SIZE = (WINDOW_EDGE_SIZE // GRID_SIZE)
 
@@ -308,33 +308,34 @@ class TkApp(tk.Tk):
 						image=available_tile.image_tk_mini
 					)
 
-		# debug outlines & id
-		for tile in self.board.get_tiles():
-			info_text = f"{tile.iid}: {tile.position}" \
-					+ f"\npicked: {tile.debug_picked}" \
-					+ f"\nis_neigh: {tile.debug_neighbor}" \
-					+ f"\nedge: {tile.debug_edge}"
-			self.canvas.create_text(
-				*(tile.position * IMAGE_EDGE_SIZE).as_tuple(),
-				anchor=tk.NW,
-				text=info_text,
-				fill="black",
-				font="Tahoma 10 bold"
-			)
-			if tile.debug_picked:
-				self.canvas.create_rectangle(
+		if DEBUG_MODE:
+			# debug outlines & id
+			for tile in self.board.get_tiles():
+				info_text = f"{tile.iid}: {tile.position}" \
+						+ f"\npicked: {tile.debug_picked}" \
+						+ f"\nis_neigh: {tile.debug_neighbor}" \
+						+ f"\nedge: {tile.debug_edge}"
+				self.canvas.create_text(
 					*(tile.position * IMAGE_EDGE_SIZE).as_tuple(),
-					*((tile.position + 1) * IMAGE_EDGE_SIZE).as_tuple(),
-					outline="red"
+					anchor=tk.NW,
+					text=info_text,
+					fill="black",
+					font="Tahoma 10 bold"
 				)
-			if tile.debug_neighbor:
-				self.canvas.create_rectangle(
-					*(tile.position * IMAGE_EDGE_SIZE).as_tuple(),
-					*((tile.position + 1) * IMAGE_EDGE_SIZE).as_tuple(),
-					outline="green"
-				)
+				if tile.debug_picked:
+					self.canvas.create_rectangle(
+						*(tile.position * IMAGE_EDGE_SIZE).as_tuple(),
+						*((tile.position + 1) * IMAGE_EDGE_SIZE).as_tuple(),
+						outline="red"
+					)
+				if tile.debug_neighbor:
+					self.canvas.create_rectangle(
+						*(tile.position * IMAGE_EDGE_SIZE).as_tuple(),
+						*((tile.position + 1) * IMAGE_EDGE_SIZE).as_tuple(),
+						outline="green"
+					)
 
-		self.canvas.wait_variable(self._tk_click_event)
+		# self.canvas.wait_variable(self._tk_click_event)
 
 
 if __name__ == "__main__":
