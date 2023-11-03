@@ -24,32 +24,20 @@ class Vec2:
 	x: int
 	y: int
 
-	def __add__(self, other):
+	def _do_operation(self, op, other):
 		match other:
-			case int() | float():
-				return Vec2(self.x + other, self.y + other)
-			case Vec2(_, _):
-				return Vec2(self.x + other.x, self.y + other.y)
-			case _:
-				raise RuntimeError(f"unknown type to operate with: {other}")
+			case int() | float(): return Vec2(op(self.x, other), op(self.y, other))
+			case Vec2(_, _): return Vec2(op(self.x, other.x), op(self.y, other.y))
+			case _: raise RuntimeError(f"unknown type to operate with: {other}")
+
+	def __add__(self, other):
+		return self._do_operation(operator.add, other)
 
 	def __sub__(self, other):
-		match other:
-			case int() | float():
-				return Vec2(self.x - other, self.y - other)
-			case Vec2(_, _):
-				return Vec2(self.x - other.x, self.y - other.y)
-			case _:
-				raise RuntimeError(f"unknown type to operate with: {other}")
+		return self._do_operation(operator.sub, other)
 
 	def __mul__(self, other):
-		match other:
-			case int() | float():
-				return Vec2(self.x * other, self.y * other)
-			case Vec2(_, _):  # element-wise multiplication, not cross-product
-				return Vec2(self.x * other.x, self.y * other.y)
-			case _:
-				raise RuntimeError(f"unknown type to operate with: {other}")
+		return self._do_operation(operator.mul, other)
 
 	def as_tuple(self):
 		return self.x, self.y
