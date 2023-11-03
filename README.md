@@ -1,7 +1,10 @@
 Wave function collapse
 ===
-* http://cr31.co.uk/stagecast/wang/2edge.html
-* https://www.youtube.com/watch?v=rI_y2GAlQFM
+* github: [mxgmn / WaveFunctionCollapse](https://github.com/mxgmn/WaveFunctionCollapse)
+* related: [Wang Tiles](http://cr31.co.uk/stagecast/wang/2edge.html)
+* YT: [Coding Challenge 171: Wave Function Collapse](https://www.youtube.com/watch?v=rI_y2GAlQFM)
+* [Zelda WFC](https://observablehq.com/@makio135/zelda-wfc)
+* [Wave function collapse demonstration](https://oskarstalberg.com/game/wave/wave.html)
 
 Help
 ---

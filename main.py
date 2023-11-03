@@ -12,8 +12,8 @@ from collections import defaultdict
 from pathlib import Path
 from PIL import Image, ImageTk
 
-DEBUG_MODE = False
-GRID_SIZE = 16
+DEBUG_MODE = True
+GRID_SIZE = 8
 WINDOW_EDGE_SIZE = 512 * 2
 WINDOW_PADDING = 8
 IMAGE_EDGE_SIZE = (WINDOW_EDGE_SIZE // GRID_SIZE)
@@ -30,6 +30,15 @@ class Vec2:
 				return Vec2(self.x + other, self.y + other)
 			case Vec2(_, _):
 				return Vec2(self.x + other.x, self.y + other.y)
+			case _:
+				raise RuntimeError(f"unknown type to operate with: {other}")
+
+	def __sub__(self, other):
+		match other:
+			case int() | float():
+				return Vec2(self.x - other, self.y - other)
+			case Vec2(_, _):
+				return Vec2(self.x - other.x, self.y - other.y)
 			case _:
 				raise RuntimeError(f"unknown type to operate with: {other}")
 
@@ -102,7 +111,7 @@ class ProtoTile:
 		return ProtoTile(
 			image=image,
 			image_tk=ImageTk.PhotoImage(image),
-			image_tk_mini=ImageTk.PhotoImage(image.resize((IMAGE_EDGE_SIZE // 2, IMAGE_EDGE_SIZE // 2))),
+			image_tk_mini=ImageTk.PhotoImage(image.resize((IMAGE_EDGE_SIZE // 3, IMAGE_EDGE_SIZE // 3))),
 			edges=edges
 		)
 
@@ -200,39 +209,43 @@ class TileBoard(object):
 
 		complete = False
 		step_counter = 0
-		while not complete:
-			least_available = self._find_tiles_with_least_available_tiles()
+		try:
+			while not complete:
+				least_available = self._find_tiles_with_least_available_tiles()
 
-			if len(least_available) == 0:
-				raise RuntimeError("No tiles found!")
+				if len(least_available) == 0:
+					raise RuntimeError("No tiles found!")
 
-			picked_tile = random.choice(least_available)
-			# picked_tile = self._get_tile_on_position_safe(Vec2(1,1))
-			picked_tile.do_collapse()
-			picked_tile.debug_set_picked(True)
+				picked_tile = random.choice(least_available)
+				# picked_tile = self._get_tile_on_position_safe(Vec2(1,1))
+				picked_tile.debug_set_picked(True)
+				event_listener()
 
-			event_listener()
+				picked_tile.do_collapse()
+				event_listener()
 
-			# update neighbor tiles
-			neighbors = {tileEdge: self._get_tile_in_direction(picked_tile, tileEdge) for tileEdge in TileEdge}
-			for tile_edge, neighbor in neighbors.items():
-				if neighbor is not None:
-					neighbor.prune_available_tiles(
-						picked_tile.final_tile.edges.get_edge_id(tile_edge),
-						TileBoard._TILE_EDGE_CLAMP[tile_edge]
-					)
-					neighbor.debug_set_neighbor(True, tile_edge)
+				# update neighbor tiles
+				neighbors = {tileEdge: self._get_tile_in_direction(picked_tile, tileEdge) for tileEdge in TileEdge}
+				for tile_edge, neighbor in neighbors.items():
+					if neighbor is not None:
+						neighbor.prune_available_tiles(
+							picked_tile.final_tile.edges.get_edge_id(tile_edge),
+							TileBoard._TILE_EDGE_CLAMP[tile_edge]
+						)
+						neighbor.debug_set_neighbor(True, tile_edge)
 
-			event_listener()
+				event_listener()
 
-			# debug cleanup
-			for t in self._board:
-				t.debug_set_picked(False)
-				t.debug_set_neighbor(False, None)
+				# debug cleanup
+				for t in self._board:
+					t.debug_set_picked(False)
+					t.debug_set_neighbor(False, None)
 
-			complete = next((t for t in self._board if not t.is_collapsed), None) is None
-			step_counter += 1
-		print(f"board finished in {step_counter} steps")
+				complete = next((t for t in self._board if not t.is_collapsed), None) is None
+				step_counter += 1
+			print(f"board finished in {step_counter} steps")
+		except Exception as e:
+			print(e)
 
 	def _find_tiles_with_least_available_tiles(self) -> list[TileState]:
 		histogram = defaultdict(list)
@@ -269,12 +282,15 @@ class TkApp(tk.Tk):
 		)
 		self.canvas.pack()
 		self.canvas.bind("<Button-1>", self.on_canvas_click)
+		self.canvas.bind("x", self.on_canvas_click)
 		# self.geometry(f"{WINDOW_EDGE_SIZE + WINDOW_PADDING}x{WINDOW_EDGE_SIZE + WINDOW_PADDING}")
 
 		self._tile_factory = TileFactory("img/mountains", IMAGE_EDGE_SIZE)
-		self.tiles = self._tile_factory.generate_tiles("down.png", TileEdges(0, 1, 1, 1))
+		self.tiles = []
+		self.tiles.extend(self._tile_factory.generate_tiles("down.png", TileEdges(0, 1, 1, 1)))
+		self.tiles.extend(self._tile_factory.generate_tiles("blank.png", TileEdges(0, 0, 0, 0)))
 
-		self.board = TileBoard(Vec2(GRID_SIZE, GRID_SIZE), self.tiles)
+		self.board = TileBoard(Vec2(GRID_SIZE, GRID_SIZE), tuple(self.tiles))
 		self.build_board()
 		self.update()
 
@@ -297,10 +313,10 @@ class TkApp(tk.Tk):
 					image=tile.final_tile.image_tk
 				)
 			else:
-				# draw first 4 available tiles
-				pos_delta = Vec2(IMAGE_EDGE_SIZE, IMAGE_EDGE_SIZE) * 0.5
-				for i, available_tile in enumerate(tile.available_tiles[:4]):
-					r, c = divmod(i, 2)
+				# draw first 9 available tiles
+				pos_delta = Vec2(IMAGE_EDGE_SIZE, IMAGE_EDGE_SIZE) * 0.33
+				for i, available_tile in enumerate(tile.available_tiles[:9]):
+					r, c = divmod(i, 3)
 					p = tile.position * IMAGE_EDGE_SIZE + Vec2(c, r) * pos_delta
 					self.canvas.create_image(
 						*p.as_tuple(),
@@ -325,17 +341,17 @@ class TkApp(tk.Tk):
 				if tile.debug_picked:
 					self.canvas.create_rectangle(
 						*(tile.position * IMAGE_EDGE_SIZE).as_tuple(),
-						*((tile.position + 1) * IMAGE_EDGE_SIZE).as_tuple(),
+						*((tile.position + 1) * IMAGE_EDGE_SIZE - Vec2(1,1)).as_tuple(),
 						outline="red"
 					)
 				if tile.debug_neighbor:
 					self.canvas.create_rectangle(
 						*(tile.position * IMAGE_EDGE_SIZE).as_tuple(),
-						*((tile.position + 1) * IMAGE_EDGE_SIZE).as_tuple(),
+						*((tile.position + 1) * IMAGE_EDGE_SIZE - Vec2(1,1)).as_tuple(),
 						outline="green"
 					)
 
-		# self.canvas.wait_variable(self._tk_click_event)
+			# self.canvas.wait_variable(self._tk_click_event)
 
 
 if __name__ == "__main__":
