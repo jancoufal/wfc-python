@@ -54,7 +54,10 @@ class TileEdge(Enum):
 
 
 class TileTransformation(Enum):
-	ROTATE_BY_90_DEG_ALL_AROUND = auto(),
+	ORIGINAL = "orig"
+	ROTATE_BY_90_DEG_CCW = "r1_ccw"
+	ROTATE_BY_180_DEG_CCW = "r2_ccw"
+	ROTATE_BY_270_DEG_CCW = "r3_ccw"
 # ROTATE_BY_180_DEG = auto(),
 # MIRROR_HORIZONTALLY = auto(),
 # MIRROR_VERTICALLY = auto(),
@@ -89,14 +92,16 @@ class TileEdges:
 
 @dataclass
 class ProtoTile:
+	name: str
 	image: Image
 	image_tk: ImageTk.PhotoImage
 	image_tk_mini: ImageTk.PhotoImage
 	edges: TileEdges
 
 	@classmethod
-	def create(cls, image: Image, edges: TileEdges):
+	def create(cls, name: str, image: Image, edges: TileEdges):
 		return ProtoTile(
+			name=name,
 			image=image,
 			image_tk=ImageTk.PhotoImage(image),
 			image_tk_mini=ImageTk.PhotoImage(image.resize((IMAGE_EDGE_SIZE // 3, IMAGE_EDGE_SIZE // 3))),
@@ -105,6 +110,7 @@ class ProtoTile:
 
 	def make_copy(self):
 		return ProtoTile(
+			name=self.name,
 			image=self.image,
 			image_tk=self.image_tk,
 			image_tk_mini=self.image_tk_mini,
@@ -116,17 +122,35 @@ class ProtoTile:
 
 
 class TileFactory(object):
+
+	_IMAGE_OPERATIONS = {
+		TileTransformation.ORIGINAL: lambda img: img,
+		TileTransformation.ROTATE_BY_90_DEG_CCW: lambda img: img.rotate(90),
+		TileTransformation.ROTATE_BY_180_DEG_CCW: lambda img: img.rotate(180),
+		TileTransformation.ROTATE_BY_270_DEG_CCW: lambda img: img.rotate(270),
+	}
+
+	_EDGE_OPERATION = {
+		TileTransformation.ORIGINAL: lambda edges: edges,
+		TileTransformation.ROTATE_BY_90_DEG_CCW: lambda edges: edges.make_rotate_left(1),
+		TileTransformation.ROTATE_BY_180_DEG_CCW: lambda edges: edges.make_rotate_left(2),
+		TileTransformation.ROTATE_BY_270_DEG_CCW: lambda edges: edges.make_rotate_left(3),
+	}
+
 	def __init__(self, image_dir: str, tile_image_size: int):
 		self._image_dir = Path(image_dir)
 		self._image_size = tile_image_size
 
-	def generate_tiles(self, image_name: str, edges: TileEdges, transformations: tuple[TileTransformation] = None) -> Tuple[ProtoTile, ...]:
+	def generate_tiles(self, image_name: str, edges: TileEdges, transformations: tuple[TileTransformation]) -> Tuple[ProtoTile, ...]:
 		image = Image.open(self._image_dir / image_name).resize((self._image_size, self._image_size))
-		tiles = []
 
-		# TODO: use transformations param
-		for i in range(4):
-			tiles.append(ProtoTile.create(image.rotate(i * 90), edges.make_rotate_left(i)))
+		tiles = []
+		for transformation in transformations:
+			tiles.append(ProtoTile.create(
+				f"{image_name}, {transformation.value}",
+				TileFactory._IMAGE_OPERATIONS[transformation](image),
+				TileFactory._EDGE_OPERATION[transformation](edges)
+			))
 
 		return tuple(tiles)
 
@@ -275,8 +299,8 @@ class TkApp(tk.Tk):
 
 		self._tile_factory = TileFactory("img/mountains", IMAGE_EDGE_SIZE)
 		self.tiles = []
-		self.tiles.extend(self._tile_factory.generate_tiles("down.png", TileEdges(0, 1, 1, 1)))
-		self.tiles.extend(self._tile_factory.generate_tiles("blank.png", TileEdges(0, 0, 0, 0)))
+		self.tiles.extend(self._tile_factory.generate_tiles("down.png", TileEdges(0, 1, 1, 1), tuple(e for e in TileTransformation)))
+		self.tiles.extend(self._tile_factory.generate_tiles("blank.png", TileEdges(0, 0, 0, 0), (TileTransformation.ORIGINAL,)))
 
 		self.board = TileBoard(Vec2i(GRID_SIZE, GRID_SIZE), tuple(self.tiles))
 		self.build_board()
@@ -316,8 +340,9 @@ class TkApp(tk.Tk):
 			# debug outlines & id
 			for tile in self.board.get_tiles():
 				info_text = f"{tile.iid}: {tile.position}" \
+						+ f"\nname: {'-' if tile.final_tile is None else tile.final_tile.name}" \
 						+ f"\npicked: {tile.debug_picked}" \
-						+ f"\nis_neigh: {tile.debug_neighbor}" \
+						+ f"\nneigh: {tile.debug_neighbor}" \
 						+ f"\nedge: {tile.debug_edge}"
 				self.canvas.create_text(
 					*(tile.position * IMAGE_EDGE_SIZE).as_tuple(),
