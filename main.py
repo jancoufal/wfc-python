@@ -20,14 +20,14 @@ IMAGE_EDGE_SIZE = (WINDOW_EDGE_SIZE // GRID_SIZE)
 
 
 @dataclass
-class Vec2:
+class Vec2i:
 	x: int
 	y: int
 
 	def _do_operation(self, op, other):
 		match other:
-			case int() | float(): return Vec2(op(self.x, other), op(self.y, other))
-			case Vec2(_, _): return Vec2(op(self.x, other.x), op(self.y, other.y))
+			case int() | float(): return Vec2i(op(self.x, other), op(self.y, other))
+			case Vec2i(_, _): return Vec2i(op(self.x, other.x), op(self.y, other.y))
 			case _: raise RuntimeError(f"unknown type to operate with: {other}")
 
 	def __add__(self, other):
@@ -134,7 +134,7 @@ class TileFactory(object):
 @dataclass
 class TileState:
 	iid: int
-	position: Vec2
+	position: Vec2i
 	available_tiles: list[ProtoTile]
 	final_tile: Optional[ProtoTile]
 	debug_picked: bool
@@ -142,7 +142,7 @@ class TileState:
 	debug_edge: Optional[TileEdge]
 
 	@classmethod
-	def create(cls, iid: int, position: Vec2, initial_tiles: Tuple[ProtoTile, ...]):
+	def create(cls, iid: int, position: Vec2i, initial_tiles: Tuple[ProtoTile, ...]):
 		return TileState(iid, position, [t.make_copy() for t in initial_tiles], None, False, False, None)
 
 	def prune_available_tiles(self, required_edge_id: int, in_direction: TileEdge):
@@ -172,10 +172,10 @@ class TileState:
 class TileBoard(object):
 
 	_POSITION_MOVE_UNSAFE = {
-		TileEdge.UP: Vec2(0, -1),
-		TileEdge.RIGHT: Vec2(+1, 0),
-		TileEdge.DOWN: Vec2(0, +1),
-		TileEdge.LEFT: Vec2(-1, 0),
+		TileEdge.UP: Vec2i(0, -1),
+		TileEdge.RIGHT: Vec2i(+1, 0),
+		TileEdge.DOWN: Vec2i(0, +1),
+		TileEdge.LEFT: Vec2i(-1, 0),
 	}
 
 	_TILE_EDGE_CLAMP = {
@@ -185,7 +185,7 @@ class TileBoard(object):
 		TileEdge.LEFT: TileEdge.RIGHT,
 	}
 
-	def __init__(self, board_size: Vec2, tiles: Tuple[ProtoTile, ...]):
+	def __init__(self, board_size: Vec2i, tiles: Tuple[ProtoTile, ...]):
 		print(f"{board_size=}")
 		self._board_size = board_size
 		self._proto_tiles = tiles
@@ -193,7 +193,7 @@ class TileBoard(object):
 
 	def build(self, event_listener: callable):
 		board_tile_count = self._board_size.x * self._board_size.y
-		self._board = [TileState.create(i, Vec2(*(divmod(i, self._board_size.x)[::-1])), self._proto_tiles) for i in range(board_tile_count)]
+		self._board = [TileState.create(i, Vec2i(*(divmod(i, self._board_size.x)[::-1])), self._proto_tiles) for i in range(board_tile_count)]
 
 		complete = False
 		step_counter = 0
@@ -247,7 +247,7 @@ class TileBoard(object):
 		neighbor_tile = self._get_tile_on_position_safe(target_position)
 		return neighbor_tile if neighbor_tile is not None and not neighbor_tile.is_collapsed else None
 
-	def _get_tile_on_position_safe(self, position: Vec2) -> Optional[TileState]:
+	def _get_tile_on_position_safe(self, position: Vec2i) -> Optional[TileState]:
 		return self._board[position.x + position.y * self._board_size.x] \
 			if 0 <= position.x < self._board_size.x and 0 <= position.y < self._board_size.y \
 			else None
@@ -278,7 +278,7 @@ class TkApp(tk.Tk):
 		self.tiles.extend(self._tile_factory.generate_tiles("down.png", TileEdges(0, 1, 1, 1)))
 		self.tiles.extend(self._tile_factory.generate_tiles("blank.png", TileEdges(0, 0, 0, 0)))
 
-		self.board = TileBoard(Vec2(GRID_SIZE, GRID_SIZE), tuple(self.tiles))
+		self.board = TileBoard(Vec2i(GRID_SIZE, GRID_SIZE), tuple(self.tiles))
 		self.build_board()
 		self.update()
 
@@ -302,10 +302,10 @@ class TkApp(tk.Tk):
 				)
 			else:
 				# draw first 9 available tiles
-				pos_delta = Vec2(IMAGE_EDGE_SIZE, IMAGE_EDGE_SIZE) * 0.33
+				pos_delta = Vec2i(IMAGE_EDGE_SIZE, IMAGE_EDGE_SIZE) * 0.33
 				for i, available_tile in enumerate(tile.available_tiles[:9]):
 					r, c = divmod(i, 3)
-					p = tile.position * IMAGE_EDGE_SIZE + Vec2(c, r) * pos_delta
+					p = tile.position * IMAGE_EDGE_SIZE + Vec2i(c, r) * pos_delta
 					self.canvas.create_image(
 						*p.as_tuple(),
 						anchor=tk.NW,
@@ -329,13 +329,13 @@ class TkApp(tk.Tk):
 				if tile.debug_picked:
 					self.canvas.create_rectangle(
 						*(tile.position * IMAGE_EDGE_SIZE).as_tuple(),
-						*((tile.position + 1) * IMAGE_EDGE_SIZE - Vec2(1,1)).as_tuple(),
+						*((tile.position + 1) * IMAGE_EDGE_SIZE - Vec2i(1, 1)).as_tuple(),
 						outline="red"
 					)
 				if tile.debug_neighbor:
 					self.canvas.create_rectangle(
 						*(tile.position * IMAGE_EDGE_SIZE).as_tuple(),
-						*((tile.position + 1) * IMAGE_EDGE_SIZE - Vec2(1,1)).as_tuple(),
+						*((tile.position + 1) * IMAGE_EDGE_SIZE - Vec2i(1, 1)).as_tuple(),
 						outline="green"
 					)
 
