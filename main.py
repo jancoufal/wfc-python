@@ -65,11 +65,6 @@ class TileTransformation(Enum):
 	ROTATE_BY_90_DEG_CCW = "r1_ccw"
 	ROTATE_BY_180_DEG_CCW = "r2_ccw"
 	ROTATE_BY_270_DEG_CCW = "r3_ccw"
-# ROTATE_BY_180_DEG = auto(),
-# MIRROR_HORIZONTALLY = auto(),
-# MIRROR_VERTICALLY = auto(),
-# ROTATE_BY_90_DEG_ALL_AROUND_MIRRORED = auto(),
-# ROTATE_BY_180_DEG_MIRRORED = auto(),
 
 
 @dataclass
@@ -298,6 +293,7 @@ class TileBoardEventListener(object):
 	def _do_wait(self):
 		if self._wait_hook is not None:
 			self._canvas.wait_variable(self._wait_hook)
+		self._canvas.update()
 
 
 class TileBoard(object):
@@ -427,7 +423,7 @@ class TkApp(tk.Tk):
 			self.canvas,
 			self.canvas_size,
 			Vec2i(IMAGE_EDGE_SIZE, IMAGE_EDGE_SIZE),
-			self._tk_click_event
+			None  # self._tk_click_event
 		)
 
 		self.board = TileBoard(Vec2i(GRID_SIZE, GRID_SIZE), tuple(self.tiles), self.event_listener)
