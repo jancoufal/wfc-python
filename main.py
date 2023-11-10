@@ -174,7 +174,7 @@ class TileState:
 		return original_tile_count - len(self.available_tiles)
 
 	def do_collapse(self):
-		if len(self.available_tiles) < 2:
+		if len(self.available_tiles) < 1:
 			raise AssertionError(f"Tile '{self!s}' cannot be collapsed, no available tiles.")
 		self.available_tiles = [random.choice(self.available_tiles)]
 
@@ -428,7 +428,7 @@ class TkApp(tk.Tk):
 		)
 
 		self.board = TileBoard(Vec2i(GRID_SIZE, GRID_SIZE), tuple(self.tiles), self.event_listener)
-		self.build_board()
+		# self.build_board()  # press 's'
 		self.update()
 
 	def on_canvas_click(self, event):
@@ -438,6 +438,7 @@ class TkApp(tk.Tk):
 	def on_key_release(self, event):
 		logging.debug(f"on_key_release: {event=}")
 		match event.char:
+			case 's': self.build_board()
 			case 'q': self.quit()
 			case 'x': self._tk_click_event.set(1)
 
