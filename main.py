@@ -15,7 +15,7 @@ from pathlib import Path
 from PIL import Image, ImageTk
 
 DEBUG_MODE = True
-GRID_SIZE = 3
+GRID_SIZE = 8
 WINDOW_EDGE_SIZE = 512 * 2
 WINDOW_PADDING = 8
 IMAGE_EDGE_SIZE = (WINDOW_EDGE_SIZE // GRID_SIZE)
@@ -408,7 +408,7 @@ class TkApp(tk.Tk):
 		self.bind("<Escape>", lambda _: self.destroy())
 		self.bind("<KeyRelease>", self.on_key_release)
 
-		self.title("Wave function collapse test (or Wang tiles?)")
+		self.title("Wave function collapse")
 		self.canvas_size = Vec2i(WINDOW_EDGE_SIZE + 0 * WINDOW_PADDING, WINDOW_EDGE_SIZE + 0 * WINDOW_PADDING)
 		self.canvas = tk.Canvas(self, width=self.canvas_size.x, height=self.canvas_size.y)
 		self.canvas.pack()
