@@ -172,8 +172,11 @@ class TileState:
 	def create(cls, iid: int, position: Vec2i, initial_tiles: Tuple[ProtoTile, ...]):
 		return TileState(iid, position, [t.make_copy() for t in initial_tiles])
 
-	def prune_available_tiles(self, required_edge_id: int, in_direction: TileEdge):
-		self.available_tiles = [t for t in self.available_tiles if t.edges.get_edge_id(in_direction) == required_edge_id]
+	""" :return number of tiles pruned """
+	def prune_available_tiles(self, required_edge_ids: set[int], in_direction: TileEdge) -> int:
+		original_tile_count = len(self.available_tiles)
+		self.available_tiles = [t for t in self.available_tiles if t.edges.get_edge_id(in_direction) in required_edge_ids]
+		return original_tile_count - len(self.available_tiles)
 
 	def do_collapse(self):
 		if len(self.available_tiles) < 2:
@@ -202,53 +205,68 @@ class TileBoardEventListener(object):
 		self._tile_size = tile_size
 		self._wait_hook = wait_hook
 
-	def on_start(self, board_size: Vec2i, tiles: list[TileState]):
-		self._l.info(f"on_start({board_size=}, {len(tiles)=})")
-		for tile in tiles:
-			self._draw_tile(tile)
+	def on_start(self, board: list[TileState], board_size: Vec2i):
+		self._l.info(f"on_start({board_size=}, {len(board)=})")
+		self._draw_board(board)
 		self._do_wait()
-		# raise RuntimeError("stop")
 
-	def on_finish(self):
-		self._l.info(f"on_finish()")
-		pass
+	def on_finish(self, board: list[TileState]):
+		self._l.info(f"on_finish({len(board)=})")
+		self._draw_board(board)
 
-	def on_single_loop_start(self):
+	def on_single_loop_start(self, board: list[TileState]):
 		self._l.info(f"on_single_loop_start()")
 
-	def on_single_loop_end(self):
+	def on_single_loop_end(self, board: list[TileState]):
 		self._l.info(f"on_single_loop_end()")
 
-	def on_find_tiles_with_least_available_tiles(self, tiles: list[TileState]):
+	def on_find_tiles_with_least_available_tiles(self, board: list[TileState], tiles: list[TileState]):
 		self._l.info(f"on_find_tiles_with_least_available_tiles({len(tiles)=})")
 
-	def on_random_tile_picked(self, tile: TileState):
-		self._l.info(f"on_random_tile_picked({tile=})")
+	def on_random_tile_picked(self, board: list[TileState], tile: TileState):
+		self._l.info(f"on_random_tile_picked({tile=!s})")
 
-	def on_tile_collapse(self, tile: TileState):
-		self._l.info(f"on_tile_collapse({tile=})")
-		self._draw_tile(tile)
+	def on_tile_collapse(self, board: list[TileState], tile: TileState):
+		self._l.info(f"on_tile_collapse({tile=!s})")
+		self._draw_board(board)
+		self._draw_tile(tile, "lime")
 		self._do_wait()
 
-	def on_neighbor_propagate_start(self, tile: TileState, back_trace: deque[TileState]):
-		self._l.info(f"on_neighbor_propagate_start({tile=}, {len(back_trace)=})")
-
-	def on_neighbor_tiles_pruned(self, tile: TileState, back_trace: deque[TileState]):
-		self._l.info(f"on_neighbor_tiles_pruned({tile=}, {len(back_trace)=})")
-		self._canvas.create_rectangle(
-			*(tile.position * self._tile_size).as_tuple(),
-			*((tile.position + Vec2i(1, 1)) * self._tile_size - Vec2i(1, 1)).as_tuple(),
-			fill="green",
-			outline="red"
-		)
-		self._draw_tile(tile)
+	def on_neighbor_propagate_start(self, board: list[TileState], tile: TileState, back_trace: deque[TileState]):
+		self._l.info(f"on_neighbor_propagate_start({tile=!s}, {len(back_trace)=})")
+		self._draw_board(board)
+		self._draw_tile(tile, "cyan")
+		self._draw_backtrace(back_trace)
 		self._do_wait()
 
-	def on_neighbor_propagate_finish(self, tile: TileState, back_trace: deque[TileState]):
-		self._l.info(f"on_neighbor_propagate_finish({tile=}, {len(back_trace)=})")
+	def on_neighbor_tiles_pruned(self, board: list[TileState], tile: TileState, number_of_pruned_tiles: int, back_trace: deque[TileState]):
+		self._l.info(f"on_neighbor_tiles_pruned({tile=!s}, {number_of_pruned_tiles=}, {len(back_trace)=})")
+		self._draw_board(board)
+		self._draw_tile(tile, "red")
+		self._draw_backtrace(back_trace)
+		self._do_wait()
 
-	def _draw_tile(self, tile: TileState):
-		return self._draw_tile_collapsed(tile) if tile.is_collapsed else self._draw_tile_superposition(tile)
+	def on_neighbor_propagate_finish(self, board: list[TileState], tile: TileState, back_trace: deque[TileState]):
+		self._l.info(f"on_neighbor_propagate_finish({tile=!s}, {len(back_trace)=})")
+		self._draw_board(board)
+		self._draw_tile(tile, "gray")
+		self._draw_backtrace(back_trace)
+		self._do_wait()
+
+	def _draw_board(self, board: list[TileState]):
+		self._canvas.delete("all")
+		for tile in board:
+			self._draw_tile(tile)
+
+	def _draw_tile(self, tile: TileState, outline=None):
+		self._draw_tile_collapsed(tile) if tile.is_collapsed else self._draw_tile_superposition(tile)
+		if outline is not None:
+			self._canvas.create_rectangle(
+				*(tile.position * self._tile_size).as_tuple(),
+				*((tile.position + Vec2i(1, 1)) * self._tile_size - Vec2i(1, 1)).as_tuple(),
+				# fill="green",
+				outline=outline
+			)
 
 	def _draw_tile_collapsed(self, tile: TileState):
 		self._canvas.create_image(
@@ -268,6 +286,14 @@ class TileBoardEventListener(object):
 				anchor=tk.NW,
 				image=available_tile.image_tk_mini
 			)
+
+	def _draw_backtrace(self, back_trace: deque[TileState]):
+		prev_point = None
+		for tile in back_trace:
+			point = tile.position * self._tile_size + self._tile_size * 0.5
+			if prev_point is not None:
+				self._canvas.create_line(*prev_point.as_tuple(), *point.as_tuple(), fill="red", width=3)
+			prev_point = point
 
 	def _do_wait(self):
 		if self._wait_hook is not None:
@@ -300,33 +326,33 @@ class TileBoard(object):
 		board_tile_count = self._board_size.x * self._board_size.y
 		self._board = [TileState.create(i, Vec2i(*(divmod(i, self._board_size.x)[::-1])), self._proto_tiles) for i in range(board_tile_count)]
 
-		self._event_listener.on_start(self._board_size, self._board)
+		self._event_listener.on_start(self._board, self._board_size)
 
 		complete = False
 		step_counter = 0
 		try:
 			while not complete:
-				self._event_listener.on_single_loop_start()
+				self._event_listener.on_single_loop_start(self._board)
 
 				least_available = self._find_tiles_with_least_available_tiles()
-				self._event_listener.on_find_tiles_with_least_available_tiles(least_available)
+				self._event_listener.on_find_tiles_with_least_available_tiles(self._board, least_available)
 
 				if len(least_available) == 0:
 					raise RuntimeError("No tiles found!")
 
 				picked_tile = random.choice(least_available)
 				# picked_tile = self._get_tile_on_position_safe(Vec2(1,1))
-				self._event_listener.on_random_tile_picked(picked_tile)
+				self._event_listener.on_random_tile_picked(self._board, picked_tile)
 
 				picked_tile.do_collapse()
-				self._event_listener.on_tile_collapse(picked_tile)
+				self._event_listener.on_tile_collapse(self._board, picked_tile)
 
 				self._propagate(picked_tile)
 
 				complete = next((t for t in self._board if not t.is_collapsed), None) is None
 				step_counter += 1
 
-				self._event_listener.on_single_loop_end()
+				self._event_listener.on_single_loop_end(self._board)
 
 			logging.info(f"board finished in {step_counter} steps")
 		except Exception as e:
@@ -339,20 +365,22 @@ class TileBoard(object):
 
 		if len(tile.available_tiles) == 1 and not tile.is_collapsed:
 			tile.do_collapse()
-			self._event_listener.on_tile_collapse(tile)
+			self._event_listener.on_tile_collapse(self._board, tile)
 
 		for tile_edge in TileEdge:
 			neighbor_tile = self._get_tile_in_direction(tile, tile_edge)
 			if neighbor_tile is not None and neighbor_tile not in back_trace:
 				back_trace.append(neighbor_tile)
-				self._event_listener.on_neighbor_propagate_start(neighbor_tile, back_trace)
-				neighbor_tile.prune_available_tiles(
-					tile.get_collapsed_tile.edges.get_edge_id(tile_edge),  # todo: not collapsed tile, but all of available tiles
+				self._event_listener.on_neighbor_propagate_start(self._board, neighbor_tile, back_trace)
+				number_of_pruned_tiles = neighbor_tile.prune_available_tiles(
+					set([e.edges.get_edge_id(tile_edge) for e in tile.available_tiles]),
 					TileBoard._TILE_EDGE_OPPOSITE[tile_edge]
 				)
-				self._event_listener.on_neighbor_tiles_pruned(neighbor_tile, back_trace)
-				self._propagate_impl(neighbor_tile, back_trace)
-				self._event_listener.on_neighbor_propagate_finish(neighbor_tile, back_trace)
+				self._event_listener.on_neighbor_tiles_pruned(self._board, neighbor_tile, number_of_pruned_tiles, back_trace)
+				if number_of_pruned_tiles > 0:
+					self._propagate_impl(neighbor_tile, back_trace)
+				back_trace.pop()
+				self._event_listener.on_neighbor_propagate_finish(self._board, neighbor_tile, back_trace)
 
 	def _find_tiles_with_least_available_tiles(self) -> list[TileState]:
 		histogram = defaultdict(list)
@@ -380,13 +408,14 @@ class TkApp(tk.Tk):
 		super().__init__()
 
 		self._tk_click_event = tk.IntVar()
+		self.bind("<Escape>", lambda _: self.destroy())
+		self.bind("<KeyRelease>", self.on_key_release)
 
 		self.title("Wave function collapse test (or Wang tiles?)")
 		self.canvas_size = Vec2i(WINDOW_EDGE_SIZE + 0 * WINDOW_PADDING, WINDOW_EDGE_SIZE + 0 * WINDOW_PADDING)
 		self.canvas = tk.Canvas(self, width=self.canvas_size.x, height=self.canvas_size.y)
 		self.canvas.pack()
 		self.canvas.bind("<Button-1>", self.on_canvas_click)
-		self.canvas.bind("x", self.on_canvas_click)
 
 		self._tile_factory = TileFactory("img/mountains", IMAGE_EDGE_SIZE)
 		self.tiles = []
@@ -406,8 +435,14 @@ class TkApp(tk.Tk):
 		self.update()
 
 	def on_canvas_click(self, event):
-		logging.info(f"on_canvas_click: {event=}")
+		logging.debug(f"on_canvas_click: {event=}")
 		self._tk_click_event.set(1)
+
+	def on_key_release(self, event):
+		logging.debug(f"on_key_release: {event=}")
+		match event.char:
+			case 'q': self.quit()
+			case 'x': self._tk_click_event.set(1)
 
 	def build_board(self):
 		self.board.build()
@@ -418,6 +453,7 @@ class TkApp(tk.Tk):
 
 if __name__ == "__main__":
 	logging.basicConfig(**LOGGING_CONFIG)
+	random.seed(1)
 	tkApp = TkApp()
 	tkApp.mainloop()
 	logging.info("done")
