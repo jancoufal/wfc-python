@@ -15,7 +15,7 @@ from pathlib import Path
 from PIL import Image, ImageTk
 
 DEBUG_MODE = True
-GRID_SIZE = 8
+GRID_SIZE = 3
 WINDOW_EDGE_SIZE = 512 * 2
 WINDOW_PADDING = 8
 IMAGE_EDGE_SIZE = (WINDOW_EDGE_SIZE // GRID_SIZE)
@@ -214,6 +214,7 @@ class TileBoardEventListener(object):
 
 	def on_single_loop_end(self, board: list[TileState]):
 		self._l.info(f"on_single_loop_end()")
+		self._draw_board(board)
 
 	def on_find_tiles_with_least_available_tiles(self, board: list[TileState], tiles: list[TileState]):
 		self._l.info(f"on_find_tiles_with_least_available_tiles({len(tiles)=})")
@@ -449,7 +450,7 @@ class TkApp(tk.Tk):
 
 if __name__ == "__main__":
 	logging.basicConfig(**LOGGING_CONFIG)
-	random.seed(1)
+	# random.seed(1)
 	tkApp = TkApp()
 	tkApp.mainloop()
 	logging.info("done")
