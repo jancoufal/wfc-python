@@ -37,16 +37,16 @@ class Vec2i:
 			case Vec2i(_, _): return Vec2i(op(self.x, other.x), op(self.y, other.y))
 			case _: raise RuntimeError(f"unknown type to operate with: {other}")
 
-	def __add__(self, other):
+	def __add__(self, other: "Vec2i" | float | int):
 		return self._do_operation(operator.add, other)
 
-	def __sub__(self, other):
+	def __sub__(self, other: "Vec2i" | float | int):
 		return self._do_operation(operator.sub, other)
 
-	def __mul__(self, other):
+	def __mul__(self, other: "Vec2i" | float | int):
 		return self._do_operation(operator.mul, other)
 
-	def as_tuple(self):
+	def as_tuple(self) -> tuple[int, int]:
 		return self.x, self.y
 
 	def __str__(self):
@@ -74,13 +74,13 @@ class TileEdges:
 	down: int
 	left: int
 
-	def make_rotate_left(self, amount: int):
+	def make_rotate_left(self, amount: int) -> "TileEdges":
 		# https://stackoverflow.com/questions/5299135/how-to-efficiently-left-shift-a-tuple
 		edges = (self.up, self.right, self.down, self.left)
 		amount = amount % len(edges)
 		return TileEdges(*(edges[amount:] + edges[0:amount]))
 
-	def get_edge_id(self, edge: TileEdge):
+	def get_edge_id(self, edge: TileEdge) -> int:
 		match edge:
 			case TileEdge.UP: return self.up
 			case TileEdge.RIGHT: return self.right
@@ -101,7 +101,7 @@ class ProtoTile:
 	edges: TileEdges
 
 	@classmethod
-	def create(cls, name: str, image: Image, edges: TileEdges):
+	def create(cls, name: str, image: Image, edges: TileEdges) -> "ProtoTile":
 		return ProtoTile(
 			name=name,
 			image=image,
@@ -110,7 +110,7 @@ class ProtoTile:
 			edges=edges
 		)
 
-	def make_copy(self):
+	def make_copy(self) -> "ProtoTile":
 		return ProtoTile(
 			name=self.name,
 			image=self.image,
@@ -143,7 +143,7 @@ class TileFactory(object):
 		self._image_dir = Path(image_dir)
 		self._image_size = tile_image_size
 
-	def generate_tiles(self, image_name: str, edges: TileEdges, transformations: tuple[TileTransformation]) -> Tuple[ProtoTile, ...]:
+	def generate_tiles(self, image_name: str, edges: TileEdges, transformations: tuple[TileTransformation]) -> list[ProtoTile, ...]:
 		image = Image.open(self._image_dir / image_name).resize((self._image_size, self._image_size))
 
 		tiles = []
@@ -164,7 +164,7 @@ class TileState:
 	available_tiles: list[ProtoTile]
 
 	@classmethod
-	def create(cls, iid: int, position: Vec2i, initial_tiles: Tuple[ProtoTile, ...]):
+	def create(cls, iid: int, position: Vec2i, initial_tiles: Tuple[ProtoTile, ...]) -> "TileState":
 		return TileState(iid, position, [t.make_copy() for t in initial_tiles])
 
 	""" :return number of tiles pruned """
@@ -173,17 +173,18 @@ class TileState:
 		self.available_tiles = [t for t in self.available_tiles if t.edges.get_edge_id(in_direction) in required_edge_ids]
 		return original_tile_count - len(self.available_tiles)
 
-	def do_collapse(self):
+	def do_collapse(self) -> None:
 		if len(self.available_tiles) < 1:
 			raise AssertionError(f"Tile '{self!s}' cannot be collapsed, no available tiles.")
 		self.available_tiles = [random.choice(self.available_tiles)]
 
 	@property
-	def is_collapsed(self):
+	def is_collapsed(self) -> bool:
 		return len(self.available_tiles) == 1
 
+	""" throws an exception when not collapsed """
 	@property
-	def get_collapsed_tile(self):
+	def get_collapsed_tile(self) -> "ProtoTile":
 		if not self.is_collapsed:
 			raise AssertionError(f"Tile {self!s} is not collapsed.")
 		return self.available_tiles[0]
@@ -200,61 +201,61 @@ class TileBoardEventListener(object):
 		self._tile_size = tile_size
 		self._wait_hook = wait_hook
 
-	def on_start(self, board: list[TileState], board_size: Vec2i):
+	def on_start(self, board: list[TileState], board_size: Vec2i) -> None:
 		self._l.info(f"on_start({board_size=}, {len(board)=})")
 		self._draw_board(board)
 		self._do_wait()
 
-	def on_finish(self, board: list[TileState]):
+	def on_finish(self, board: list[TileState]) -> None:
 		self._l.info(f"on_finish({len(board)=})")
 		self._draw_board(board)
 
-	def on_single_loop_start(self, board: list[TileState]):
+	def on_single_loop_start(self, board: list[TileState]) -> None:
 		self._l.info(f"on_single_loop_start()")
 
-	def on_single_loop_end(self, board: list[TileState]):
+	def on_single_loop_end(self, board: list[TileState]) -> None:
 		self._l.info(f"on_single_loop_end()")
 		self._draw_board(board)
 
-	def on_find_tiles_with_least_available_tiles(self, board: list[TileState], tiles: list[TileState]):
+	def on_find_tiles_with_least_available_tiles(self, board: list[TileState], tiles: list[TileState]) -> None:
 		self._l.info(f"on_find_tiles_with_least_available_tiles({len(tiles)=})")
 
-	def on_random_tile_picked(self, board: list[TileState], tile: TileState):
+	def on_random_tile_picked(self, board: list[TileState], tile: TileState) -> None:
 		self._l.info(f"on_random_tile_picked({tile=!s})")
 
-	def on_tile_collapse(self, board: list[TileState], tile: TileState):
+	def on_tile_collapse(self, board: list[TileState], tile: TileState) -> None:
 		self._l.info(f"on_tile_collapse({tile=!s})")
 		self._draw_board(board)
 		self._draw_tile(tile, "lime")
 		self._do_wait()
 
-	def on_neighbor_propagate_start(self, board: list[TileState], tile: TileState, back_trace: deque[TileState]):
+	def on_neighbor_propagate_start(self, board: list[TileState], tile: TileState, back_trace: deque[TileState]) -> None:
 		self._l.info(f"on_neighbor_propagate_start({tile=!s}, {len(back_trace)=})")
 		self._draw_board(board)
 		self._draw_tile(tile, "cyan")
 		self._draw_backtrace(back_trace)
 		self._do_wait()
 
-	def on_neighbor_tiles_pruned(self, board: list[TileState], tile: TileState, number_of_pruned_tiles: int, back_trace: deque[TileState]):
+	def on_neighbor_tiles_pruned(self, board: list[TileState], tile: TileState, number_of_pruned_tiles: int, back_trace: deque[TileState]) -> None:
 		self._l.info(f"on_neighbor_tiles_pruned({tile=!s}, {number_of_pruned_tiles=}, {len(back_trace)=})")
 		self._draw_board(board)
 		self._draw_tile(tile, "red")
 		self._draw_backtrace(back_trace)
 		self._do_wait()
 
-	def on_neighbor_propagate_finish(self, board: list[TileState], tile: TileState, back_trace: deque[TileState]):
+	def on_neighbor_propagate_finish(self, board: list[TileState], tile: TileState, back_trace: deque[TileState]) -> None:
 		self._l.info(f"on_neighbor_propagate_finish({tile=!s}, {len(back_trace)=})")
 		self._draw_board(board)
 		self._draw_tile(tile, "gray")
 		self._draw_backtrace(back_trace)
 		self._do_wait()
 
-	def _draw_board(self, board: list[TileState]):
+	def _draw_board(self, board: list[TileState]) -> None:
 		self._canvas.delete("all")
 		for tile in board:
 			self._draw_tile(tile)
 
-	def _draw_tile(self, tile: TileState, outline=None):
+	def _draw_tile(self, tile: TileState, outline=None) -> None:
 		self._draw_tile_collapsed(tile) if tile.is_collapsed else self._draw_tile_superposition(tile)
 		if outline is not None:
 			self._canvas.create_rectangle(
@@ -264,14 +265,14 @@ class TileBoardEventListener(object):
 				outline=outline
 			)
 
-	def _draw_tile_collapsed(self, tile: TileState):
+	def _draw_tile_collapsed(self, tile: TileState) -> None:
 		self._canvas.create_image(
 			*(tile.position * self._tile_size).as_tuple(),
 			anchor=tk.NW,
 			image=tile.get_collapsed_tile.image_tk
 		)
 
-	def _draw_tile_superposition(self, tile: TileState):
+	def _draw_tile_superposition(self, tile: TileState) -> None:
 		# draw first 9 available tiles
 		pos_delta = self._tile_size * 0.33
 		for i, available_tile in enumerate(tile.available_tiles[:9]):
@@ -283,7 +284,7 @@ class TileBoardEventListener(object):
 				image=available_tile.image_tk_mini
 			)
 
-	def _draw_backtrace(self, back_trace: deque[TileState]):
+	def _draw_backtrace(self, back_trace: deque[TileState]) -> None:
 		prev_point = None
 		for tile in back_trace:
 			point = tile.position * self._tile_size + self._tile_size * 0.5
@@ -291,7 +292,7 @@ class TileBoardEventListener(object):
 				self._canvas.create_line(*prev_point.as_tuple(), *point.as_tuple(), fill="red", width=3)
 			prev_point = point
 
-	def _do_wait(self):
+	def _do_wait(self) -> None:
 		if self._wait_hook is not None:
 			self._canvas.wait_variable(self._wait_hook)
 		self._canvas.update()
@@ -319,7 +320,7 @@ class TileBoard(object):
 		self._board = []
 		self._event_listener = event_listener
 
-	def build(self):
+	def build(self) -> None:
 		board_tile_count = self._board_size.x * self._board_size.y
 		self._board = [TileState.create(i, Vec2i(*(divmod(i, self._board_size.x)[::-1])), self._proto_tiles) for i in range(board_tile_count)]
 
@@ -355,10 +356,10 @@ class TileBoard(object):
 		except Exception as e:
 			logging.error(e)
 
-	def _propagate(self, tile: TileState):
+	def _propagate(self, tile: TileState) -> None:
 		self._propagate_impl(tile, deque([tile]))
 
-	def _propagate_impl(self, tile: TileState, back_trace: deque[TileState]):
+	def _propagate_impl(self, tile: TileState, back_trace: deque[TileState]) -> None:
 
 		if len(tile.available_tiles) == 1 and not tile.is_collapsed:
 			tile.do_collapse()
@@ -396,7 +397,7 @@ class TileBoard(object):
 			if 0 <= position.x < self._board_size.x and 0 <= position.y < self._board_size.y \
 			else None
 
-	def get_tiles(self) -> list[TileState]:
+	def get_tiles(self) -> list[TileState, ...]:
 		return self._board
 
 
