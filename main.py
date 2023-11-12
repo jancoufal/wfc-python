@@ -20,7 +20,7 @@ WINDOW_EDGE_SIZE = 512 * 2
 WINDOW_PADDING = 8
 IMAGE_EDGE_SIZE = (WINDOW_EDGE_SIZE // GRID_SIZE)
 LOGGING_CONFIG = {
-	"level": logging.DEBUG,
+	"level": logging.INFO,
 	"format": "%(asctime)s - %(levelname)s : %(message)s",
 	"datefmt": "%Y-%m-%d %H:%M:%S",
 }
@@ -37,13 +37,13 @@ class Vec2i:
 			case Vec2i(_, _): return Vec2i(op(self.x, other.x), op(self.y, other.y))
 			case _: raise RuntimeError(f"unknown type to operate with: {other}")
 
-	def __add__(self, other: "Vec2i" | float | int):
+	def __add__(self, other: typing.Type["Vec2i"] | float | int):
 		return self._do_operation(operator.add, other)
 
-	def __sub__(self, other: "Vec2i" | float | int):
+	def __sub__(self, other: typing.Type["Vec2i"] | float | int):
 		return self._do_operation(operator.sub, other)
 
-	def __mul__(self, other: "Vec2i" | float | int):
+	def __mul__(self, other: typing.Type["Vec2i"] | float | int):
 		return self._do_operation(operator.mul, other)
 
 	def as_tuple(self) -> tuple[int, int]:
@@ -211,40 +211,40 @@ class TileBoardEventListener(object):
 		self._draw_board(board)
 
 	def on_single_loop_start(self, board: list[TileState]) -> None:
-		self._l.info(f"on_single_loop_start()")
+		self._l.debug(f"on_single_loop_start()")
 
 	def on_single_loop_end(self, board: list[TileState]) -> None:
-		self._l.info(f"on_single_loop_end()")
+		self._l.debug(f"on_single_loop_end()")
 		self._draw_board(board)
 
 	def on_find_tiles_with_least_available_tiles(self, board: list[TileState], tiles: list[TileState]) -> None:
-		self._l.info(f"on_find_tiles_with_least_available_tiles({len(tiles)=})")
+		self._l.debug(f"on_find_tiles_with_least_available_tiles({len(tiles)=})")
 
 	def on_random_tile_picked(self, board: list[TileState], tile: TileState) -> None:
-		self._l.info(f"on_random_tile_picked({tile=!s})")
+		self._l.debug(f"on_random_tile_picked({tile=!s})")
 
 	def on_tile_collapse(self, board: list[TileState], tile: TileState) -> None:
-		self._l.info(f"on_tile_collapse({tile=!s})")
+		self._l.debug(f"on_tile_collapse({tile=!s})")
 		self._draw_board(board)
 		self._draw_tile(tile, "lime")
 		self._do_wait()
 
 	def on_neighbor_propagate_start(self, board: list[TileState], tile: TileState, back_trace: deque[TileState]) -> None:
-		self._l.info(f"on_neighbor_propagate_start({tile=!s}, {len(back_trace)=})")
+		self._l.debug(f"on_neighbor_propagate_start({tile=!s}, {len(back_trace)=})")
 		self._draw_board(board)
 		self._draw_tile(tile, "cyan")
 		self._draw_backtrace(back_trace)
 		self._do_wait()
 
 	def on_neighbor_tiles_pruned(self, board: list[TileState], tile: TileState, number_of_pruned_tiles: int, back_trace: deque[TileState]) -> None:
-		self._l.info(f"on_neighbor_tiles_pruned({tile=!s}, {number_of_pruned_tiles=}, {len(back_trace)=})")
+		self._l.debug(f"on_neighbor_tiles_pruned({tile=!s}, {number_of_pruned_tiles=}, {len(back_trace)=})")
 		self._draw_board(board)
 		self._draw_tile(tile, "red")
 		self._draw_backtrace(back_trace)
 		self._do_wait()
 
 	def on_neighbor_propagate_finish(self, board: list[TileState], tile: TileState, back_trace: deque[TileState]) -> None:
-		self._l.info(f"on_neighbor_propagate_finish({tile=!s}, {len(back_trace)=})")
+		self._l.debug(f"on_neighbor_propagate_finish({tile=!s}, {len(back_trace)=})")
 		self._draw_board(board)
 		self._draw_tile(tile, "gray")
 		self._draw_backtrace(back_trace)
