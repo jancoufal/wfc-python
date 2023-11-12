@@ -1,13 +1,10 @@
 import logging
 import tkinter
-import typing
-import math
 import random
 import tkinter as tk
-import time
 import operator
-from enum import Enum, auto
-from typing import Tuple, Optional
+from enum import Enum
+from typing import Tuple, Optional, Union, Type
 from dataclasses import dataclass
 from copy import deepcopy
 from collections import defaultdict, deque
@@ -37,13 +34,13 @@ class Vec2i:
 			case Vec2i(_, _): return Vec2i(op(self.x, other.x), op(self.y, other.y))
 			case _: raise RuntimeError(f"unknown type to operate with: {other}")
 
-	def __add__(self, other: typing.Type["Vec2i"] | float | int):
+	def __add__(self, other: Type[Union[Type["Vec2i"], float, int]]):
 		return self._do_operation(operator.add, other)
 
-	def __sub__(self, other: typing.Type["Vec2i"] | float | int):
+	def __sub__(self, other: Type[Union[Type["Vec2i"], float, int]]):
 		return self._do_operation(operator.sub, other)
 
-	def __mul__(self, other: typing.Type["Vec2i"] | float | int):
+	def __mul__(self, other: Type[Union[Type["Vec2i"], float, int]]):
 		return self._do_operation(operator.mul, other)
 
 	def as_tuple(self) -> tuple[int, int]:
@@ -143,7 +140,7 @@ class TileFactory(object):
 		self._image_dir = Path(image_dir)
 		self._image_size = tile_image_size
 
-	def generate_tiles(self, image_name: str, edges: TileEdges, transformations: tuple[TileTransformation]) -> list[ProtoTile, ...]:
+	def generate_tiles(self, image_name: str, edges: TileEdges, transformations: tuple[TileTransformation]) -> tuple[ProtoTile, ...]:
 		image = Image.open(self._image_dir / image_name).resize((self._image_size, self._image_size))
 
 		tiles = []
@@ -194,7 +191,7 @@ class TileState:
 
 
 class TileBoardEventListener(object):
-	def __init__(self, logger: logging.Logger, canvas: tkinter.Canvas, canvas_size: Vec2i, tile_size: Vec2i, wait_hook: tkinter.IntVar):
+	def __init__(self, logger: logging.Logger, canvas: tkinter.Canvas, canvas_size: Vec2i, tile_size: Vec2i, wait_hook: None | tkinter.IntVar):
 		self._l = logger
 		self._canvas = canvas
 		self._canvas_size = canvas_size
