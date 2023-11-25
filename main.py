@@ -12,7 +12,7 @@ from pathlib import Path
 from PIL import Image, ImageTk
 
 DEBUG_MODE = True
-GRID_SIZE = 8
+GRID_SIZE = 3
 WINDOW_EDGE_SIZE = 512 * 2
 WINDOW_PADDING = 8
 IMAGE_EDGE_SIZE = (WINDOW_EDGE_SIZE // GRID_SIZE)
@@ -65,6 +65,14 @@ class TileTransformation(Enum):
 
 
 @dataclass
+class TileEdgesDefinition:
+	up: str
+	right: str
+	down: str
+	left: str
+
+
+@dataclass
 class TileEdges:
 	up: int
 	right: int
@@ -87,6 +95,26 @@ class TileEdges:
 
 	def __str__(self):
 		return f"\u21bb: {self.up, self.right, self.down, self.left}"
+
+
+class EdgeIndexMapper(object):
+	def __init__(self):
+		self._edge_cache = {}
+		self._index_sequence = 0
+
+	def _get_id(self, edge_definition: str):
+		if edge_definition not in self._edge_cache.keys():
+			self._index_sequence += 1
+			self._edge_cache[edge_definition] = self._index_sequence
+		return self._edge_cache[edge_definition]
+
+	def map(self, tile_edge_definitions: TileEdgesDefinition) -> "TileEdges":
+		return TileEdges(
+			self._get_id(tile_edge_definitions.up),
+			self._get_id(tile_edge_definitions.right),
+			self._get_id(tile_edge_definitions.down[::-1]),
+			self._get_id(tile_edge_definitions.left[::-1]),
+		)
 
 
 @dataclass
@@ -139,8 +167,9 @@ class TileFactory(object):
 	def __init__(self, image_dir: str, tile_image_size: int):
 		self._image_dir = Path(image_dir)
 		self._image_size = tile_image_size
+		self._edge_mapper = EdgeIndexMapper()
 
-	def generate_tiles(self, image_name: str, edges: TileEdges, transformations: tuple[TileTransformation]) -> tuple[ProtoTile, ...]:
+	def generate_tiles(self, image_name: str, edges: TileEdgesDefinition, transformations: tuple[TileTransformation]) -> tuple[ProtoTile, ...]:
 		image = Image.open(self._image_dir / image_name).resize((self._image_size, self._image_size))
 
 		tiles = []
@@ -148,7 +177,7 @@ class TileFactory(object):
 			tiles.append(ProtoTile.create(
 				f"{image_name}, {transformation.value}",
 				TileFactory._IMAGE_OPERATIONS[transformation](image),
-				TileFactory._EDGE_OPERATION[transformation](edges)
+				TileFactory._EDGE_OPERATION[transformation](self._edge_mapper.map(edges))
 			))
 
 		return tuple(tiles)
@@ -414,8 +443,16 @@ class TkApp(tk.Tk):
 
 		self._tile_factory = TileFactory("img/mountains", IMAGE_EDGE_SIZE)
 		self.tiles = []
-		self.tiles.extend(self._tile_factory.generate_tiles("down.png", TileEdges(0, 1, 1, 1), tuple(e for e in TileTransformation)))
-		self.tiles.extend(self._tile_factory.generate_tiles("blank.png", TileEdges(0, 0, 0, 0), (TileTransformation.ORIGINAL,)))
+		self.tiles.extend(self._tile_factory.generate_tiles(
+			"down.png",
+			TileEdgesDefinition("A", "B", "B", "B"),
+			tuple(e for e in TileTransformation))
+		)
+		self.tiles.extend(self._tile_factory.generate_tiles(
+			"blank.png",
+			TileEdgesDefinition("A", "A", "A", "A"),
+			(TileTransformation.ORIGINAL,))
+		)
 
 		self.event_listener = TileBoardEventListener(
 			logging.getLogger("TkApp"),
