@@ -126,11 +126,12 @@ class ProtoTile:
 
 	@classmethod
 	def create(cls, name: str, image: Image, edges: TileEdges) -> "ProtoTile":
+		mini_image_size = (IMAGE_EDGE_SIZE // MINI_GRID_FACTOR, IMAGE_EDGE_SIZE // MINI_GRID_FACTOR)
 		return ProtoTile(
 			name=name,
 			image=image,
 			image_tk=ImageTk.PhotoImage(image),
-			image_tk_mini=ImageTk.PhotoImage(image.resize((IMAGE_EDGE_SIZE // MINI_GRID_FACTOR, IMAGE_EDGE_SIZE // MINI_GRID_FACTOR))),
+			image_tk_mini=ImageTk.PhotoImage(image.resize(mini_image_size)),
 			edges=edges
 		)
 
@@ -169,15 +170,13 @@ class TileFactory(object):
 
 		for input_tile in input_tiles:
 			image = Image.open(image_dir / input_tile.image_name).resize((self._image_size, self._image_size))
-			# original_tile = ProtoTile.create(image_name, image, edge_mapper.map(edge_definition))
-			# _add_if_not_already_generated(original_tile, lambda : image)
 
 			# generate rotations (including the original one)
 			for r in range(4):
-				_add_if_not_already_generated(TileFactory._rotate_edges_ccw(input_tile, r), lambda : image.rotate(r * 90))
+				_add_if_not_already_generated(TileFactory._rotate_edges_ccw(input_tile, r), lambda: image.rotate(r * 90))
 
-			# TODO: horizontal flip
-			# TODO: vertical flip
+			# TODO: horizontal flip?
+			# TODO: vertical flip?
 
 		return tiles
 
