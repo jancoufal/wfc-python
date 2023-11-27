@@ -12,9 +12,9 @@ from pathlib import Path
 from PIL import Image, ImageTk
 
 DEBUG_MODE = False
-# IMAGE_DIRECTORY = "img/simple/pipes"
-IMAGE_DIRECTORY = "img/circuit-coding-train"
-IMAGE_DIRECTORY_SIMPLE_IMAGES = False
+IMAGE_DIRECTORY = "img/simple/train-tracks"
+# IMAGE_DIRECTORY = "img/circuit-coding-train"
+IMAGE_DIRECTORY_SIMPLE_IMAGES = True
 GRID_SIZE = 16
 MINI_GRID_FACTOR = 4
 WINDOW_EDGE_SIZE = 512 * 2
@@ -551,7 +551,7 @@ class TkApp(tk.Tk):
 
 if __name__ == "__main__":
 	logging.basicConfig(**LOGGING_CONFIG)
-	# random.seed(1)
+	random.seed(1)
 	tkApp = TkApp()
 	tkApp.mainloop()
 	logging.info("done")
