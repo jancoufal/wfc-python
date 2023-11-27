@@ -12,7 +12,8 @@ from pathlib import Path
 from PIL import Image, ImageTk
 
 DEBUG_MODE = True
-GRID_SIZE = 3
+GRID_SIZE = 16
+MINI_GRID_FACTOR = 4
 WINDOW_EDGE_SIZE = 512 * 2
 WINDOW_PADDING = 8
 IMAGE_EDGE_SIZE = (WINDOW_EDGE_SIZE // GRID_SIZE)
@@ -129,7 +130,7 @@ class ProtoTile:
 			name=name,
 			image=image,
 			image_tk=ImageTk.PhotoImage(image),
-			image_tk_mini=ImageTk.PhotoImage(image.resize((IMAGE_EDGE_SIZE // 3, IMAGE_EDGE_SIZE // 3))),
+			image_tk_mini=ImageTk.PhotoImage(image.resize((IMAGE_EDGE_SIZE // MINI_GRID_FACTOR, IMAGE_EDGE_SIZE // MINI_GRID_FACTOR))),
 			edges=edges
 		)
 
@@ -304,10 +305,10 @@ class TileBoardEventListener(object):
 		)
 
 	def _draw_tile_superposition(self, tile: TileState) -> None:
-		# draw first 9 available tiles
-		pos_delta = self._tile_size * 0.33
-		for i, available_tile in enumerate(tile.available_tiles[:9]):
-			r, c = divmod(i, 3)
+		# draw first MINI_GRID_FACTOR*MINI_GRID_FACTOR available tiles
+		pos_delta = self._tile_size * (1.0 / MINI_GRID_FACTOR)
+		for i, available_tile in enumerate(tile.available_tiles[:(MINI_GRID_FACTOR*MINI_GRID_FACTOR)]):
+			r, c = divmod(i, MINI_GRID_FACTOR)
 			p = tile.position * self._tile_size + Vec2i(c, r) * pos_delta
 			self._canvas.create_image(
 				*p.as_tuple(),
@@ -447,9 +448,24 @@ class TkApp(tk.Tk):
 		self.canvas.bind("<Button-1>", self.on_canvas_click)
 
 		self._tile_factory = TileFactory(IMAGE_EDGE_SIZE)
-		self.tiles = self._tile_factory.generate_tiles("img/mountains", [
-			InputTile("blank.png", "A", "A", "A", "A"),
-			InputTile("down.png", "A", "B", "B", "B"),
+		# self.tiles = self._tile_factory.generate_tiles("img/mountains", [
+		# 	InputTile("blank.png", "A", "A", "A", "A"),
+		# 	InputTile("down.png", "A", "B", "B", "B"),
+		# ])
+		self.tiles = self._tile_factory.generate_tiles("img/circuit", [
+			InputTile("0.png", "AAA", "AAA", "AAA", "AAA"),
+			InputTile("1.png", "BBB", "BBB", "BBB", "BBB"),
+			InputTile("2.png", "BBB", "BCB", "BBB", "BBB"),
+			InputTile("3.png", "BBB", "BDB", "BBB", "BDB"),
+			InputTile("4.png", "ABB", "BCB", "BBA", "AAA"),
+			InputTile("5.png", "ABB", "BBB", "BBB", "BBA"),
+			InputTile("6.png", "BBB", "BCB", "BBB", "BCB"),
+			InputTile("7.png", "BDB", "BCB", "BDB", "BCB"),
+			InputTile("8.png", "BDB", "BBB", "BCB", "BBB"),
+			InputTile("9.png", "BCB", "BCB", "BBB", "BCB"),
+			InputTile("10.png", "BCB", "BCB", "BCB", "BCB"),
+			InputTile("11.png", "BCB", "BCB", "BBB", "BBB"),
+			InputTile("12.png", "BBB", "BCB", "BBB", "BCB"),
 		])
 
 		self.event_listener = TileBoardEventListener(
