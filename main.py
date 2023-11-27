@@ -4,7 +4,7 @@ import random
 import tkinter as tk
 import operator
 from enum import Enum
-from typing import Tuple, Optional, Union, Type
+from typing import Tuple, Optional, Union, Type, Callable
 from dataclasses import dataclass
 from copy import deepcopy
 from collections import defaultdict, deque
@@ -65,7 +65,8 @@ class TileTransformation(Enum):
 
 
 @dataclass
-class TileEdgesDefinition:
+class InputTile:
+	image_name: str
 	up: str
 	right: str
 	down: str
@@ -79,12 +80,6 @@ class TileEdges:
 	down: int
 	left: int
 
-	def make_rotate_left(self, amount: int) -> "TileEdges":
-		# https://stackoverflow.com/questions/5299135/how-to-efficiently-left-shift-a-tuple
-		edges = (self.up, self.right, self.down, self.left)
-		amount = amount % len(edges)
-		return TileEdges(*(edges[amount:] + edges[0:amount]))
-
 	def get_edge_id(self, edge: TileEdge) -> int:
 		match edge:
 			case TileEdge.UP: return self.up
@@ -92,6 +87,9 @@ class TileEdges:
 			case TileEdge.DOWN: return self.down
 			case TileEdge.LEFT: return self.left
 			case _: raise RuntimeError(f"Unknown edge '{edge}'.")
+
+	def __hash__(self):
+		return hash(repr(self))
 
 	def __str__(self):
 		return f"\u21bb: {self.up, self.right, self.down, self.left}"
@@ -108,7 +106,7 @@ class EdgeIndexMapper(object):
 			self._edge_cache[edge_definition] = self._index_sequence
 		return self._edge_cache[edge_definition]
 
-	def map(self, tile_edge_definitions: TileEdgesDefinition) -> "TileEdges":
+	def map(self, tile_edge_definitions: InputTile) -> "TileEdges":
 		return TileEdges(
 			self._get_id(tile_edge_definitions.up),
 			self._get_id(tile_edge_definitions.right),
@@ -144,43 +142,50 @@ class ProtoTile:
 			edges=deepcopy(self.edges)
 		)
 
+	def __hash__(self):
+		return hash(repr(self.edges))
+
 	def __str__(self):
 		return f"{self.edges}"
 
 
 class TileFactory(object):
 
-	_IMAGE_OPERATIONS = {
-		TileTransformation.ORIGINAL: lambda img: img,
-		TileTransformation.ROTATE_BY_90_DEG_CCW: lambda img: img.rotate(90),
-		TileTransformation.ROTATE_BY_180_DEG_CCW: lambda img: img.rotate(180),
-		TileTransformation.ROTATE_BY_270_DEG_CCW: lambda img: img.rotate(270),
-	}
-
-	_EDGE_OPERATION = {
-		TileTransformation.ORIGINAL: lambda edges: edges,
-		TileTransformation.ROTATE_BY_90_DEG_CCW: lambda edges: edges.make_rotate_left(1),
-		TileTransformation.ROTATE_BY_180_DEG_CCW: lambda edges: edges.make_rotate_left(2),
-		TileTransformation.ROTATE_BY_270_DEG_CCW: lambda edges: edges.make_rotate_left(3),
-	}
-
-	def __init__(self, image_dir: str, tile_image_size: int):
-		self._image_dir = Path(image_dir)
+	def __init__(self, tile_image_size: int):
 		self._image_size = tile_image_size
-		self._edge_mapper = EdgeIndexMapper()
 
-	def generate_tiles(self, image_name: str, edges: TileEdgesDefinition, transformations: tuple[TileTransformation]) -> tuple[ProtoTile, ...]:
-		image = Image.open(self._image_dir / image_name).resize((self._image_size, self._image_size))
-
+	def generate_tiles(self, image_dir: str, input_tiles: list[InputTile]) -> list[ProtoTile]:
+		image_dir = Path(image_dir)
+		edge_mapper = EdgeIndexMapper()
 		tiles = []
-		for transformation in transformations:
-			tiles.append(ProtoTile.create(
-				f"{image_name}, {transformation.value}",
-				TileFactory._IMAGE_OPERATIONS[transformation](image),
-				TileFactory._EDGE_OPERATION[transformation](self._edge_mapper.map(edges))
-			))
+		already_generated_tiles = set()
 
-		return tuple(tiles)
+		def _add_if_not_already_generated(tile_to_add: InputTile, tile_image_supplier: Callable[[], Image]):
+			edges_reindexed = edge_mapper.map(tile_to_add)
+			if edges_reindexed not in already_generated_tiles:
+				already_generated_tiles.add(edges_reindexed)
+				tiles.append(ProtoTile.create(tile_to_add.image_name, tile_image_supplier(), edges_reindexed))
+
+		for input_tile in input_tiles:
+			image = Image.open(image_dir / input_tile.image_name).resize((self._image_size, self._image_size))
+			# original_tile = ProtoTile.create(image_name, image, edge_mapper.map(edge_definition))
+			# _add_if_not_already_generated(original_tile, lambda : image)
+
+			# generate rotations (including the original one)
+			for r in range(4):
+				_add_if_not_already_generated(TileFactory._rotate_edges_ccw(input_tile, r), lambda : image.rotate(r * 90))
+
+			# TODO: horizontal flip
+			# TODO: vertical flip
+
+		return tiles
+
+	@staticmethod
+	def _rotate_edges_ccw(input_tile: InputTile, amount: int) -> InputTile:
+		# https://stackoverflow.com/questions/5299135/how-to-efficiently-left-shift-a-tuple
+		edges = (input_tile.up, input_tile.right, input_tile.down, input_tile.left)
+		amount = amount % len(edges)
+		return InputTile(input_tile.image_name, *(edges[amount:] + edges[0:amount]))
 
 
 @dataclass
@@ -441,18 +446,11 @@ class TkApp(tk.Tk):
 		self.canvas.pack()
 		self.canvas.bind("<Button-1>", self.on_canvas_click)
 
-		self._tile_factory = TileFactory("img/mountains", IMAGE_EDGE_SIZE)
-		self.tiles = []
-		self.tiles.extend(self._tile_factory.generate_tiles(
-			"down.png",
-			TileEdgesDefinition("A", "B", "B", "B"),
-			tuple(e for e in TileTransformation))
-		)
-		self.tiles.extend(self._tile_factory.generate_tiles(
-			"blank.png",
-			TileEdgesDefinition("A", "A", "A", "A"),
-			(TileTransformation.ORIGINAL,))
-		)
+		self._tile_factory = TileFactory(IMAGE_EDGE_SIZE)
+		self.tiles = self._tile_factory.generate_tiles("img/mountains", [
+			InputTile("blank.png", "A", "A", "A", "A"),
+			InputTile("down.png", "A", "B", "B", "B"),
+		])
 
 		self.event_listener = TileBoardEventListener(
 			logging.getLogger("TkApp"),
