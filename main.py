@@ -1,15 +1,14 @@
 import logging
+import operator
 import os
-import tkinter
 import random
 import tkinter as tk
-import operator
-from enum import Enum
-from typing import Tuple, Optional, Union, Type, Callable
-from dataclasses import dataclass
-from copy import deepcopy
 from collections import defaultdict, deque
+from copy import deepcopy
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
+from typing import Tuple, Optional, Union, Type, Callable
 from PIL import Image, ImageTk
 
 DEBUG_MODE = True
@@ -238,7 +237,7 @@ class TileState:
 
 
 class TileBoardEventListener(object):
-	def __init__(self, logger: logging.Logger, canvas: tkinter.Canvas, canvas_size: Vec2i, tile_size: Vec2i, wait_hook: None | tkinter.IntVar):
+	def __init__(self, logger: logging.Logger, canvas: tk.Canvas, canvas_size: Vec2i, tile_size: Vec2i, wait_hook: None | tk.IntVar):
 		self._l = logger
 		self._canvas = canvas
 		self._canvas_size = canvas_size
@@ -343,7 +342,7 @@ class TileBoardEventListener(object):
 
 
 class TileBoardEventListenerSimple(object):
-	def __init__(self, canvas: tkinter.Canvas, tile_size: Vec2i):
+	def __init__(self, canvas: tk.Canvas, tile_size: Vec2i):
 		self._canvas = canvas
 		self._tile_size = tile_size
 
