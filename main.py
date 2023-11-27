@@ -12,7 +12,10 @@ from pathlib import Path
 from PIL import Image, ImageTk
 
 DEBUG_MODE = False
-GRID_SIZE = 16 * 4
+# IMAGE_DIRECTORY = "img/simple/pipes"
+IMAGE_DIRECTORY = "img/circuit-coding-train"
+IMAGE_DIRECTORY_SIMPLE_IMAGES = False
+GRID_SIZE = 16
 MINI_GRID_FACTOR = 4
 WINDOW_EDGE_SIZE = 512 * 2
 WINDOW_PADDING = 8
@@ -492,10 +495,6 @@ class TkApp(tk.Tk):
 		self._tile_factory = TileFactory(IMAGE_EDGE_SIZE)
 
 		if DEBUG_MODE:
-			self.tiles = self._tile_factory.generate_tiles("img/mountains", [
-				InputTile("blank.png", "A", "A", "A", "A"),
-				InputTile("down.png", "A", "B", "B", "B"),
-			])
 			self.event_listener = TileBoardEventListener(
 				logging.getLogger("TkApp"),
 				self.canvas,
@@ -505,7 +504,14 @@ class TkApp(tk.Tk):
 			)
 		else:
 			self.event_listener = TileBoardEventListenerSimple(self.canvas, Vec2i(IMAGE_EDGE_SIZE, IMAGE_EDGE_SIZE))
-			self.tiles = self._tile_factory.generate_tiles("img/circuit", [
+
+		if IMAGE_DIRECTORY_SIMPLE_IMAGES:
+			self.tiles = self._tile_factory.generate_tiles(IMAGE_DIRECTORY, [
+				InputTile("blank.png", "A", "A", "A", "A"),
+				InputTile("down.png", "A", "B", "B", "B"),
+			])
+		else:
+			self.tiles = self._tile_factory.generate_tiles(IMAGE_DIRECTORY, [
 				InputTile("0.png", "AAA", "AAA", "AAA", "AAA"),
 				InputTile("1.png", "BBB", "BBB", "BBB", "BBB"),
 				InputTile("2.png", "BBB", "BCB", "BBB", "BBB"),
