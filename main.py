@@ -4,26 +4,26 @@ import os
 import random
 import tkinter as tk
 from collections import defaultdict, deque
-from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Tuple, Optional, Union, Type, Callable
+
 from PIL import Image, ImageTk
 
-DEBUG_MODE = True
+DEBUG_MODE = False
 IMAGE_DIRECTORY = random.choice((
-	"img/circuit",
-	"img/circuit-coding-train",
-	"img/demo",
-	"img/mountains",
-	"img/pipes",
-	"img/polka",
-	"img/rail",
+	# "img/circuit",
+	# "img/circuit-coding-train",
+	# "img/demo",
+	# "img/mountains",
+	# "img/pipes",
+	# "img/polka",
+	# "img/rail",
 	"img/roads",
-	"img/train-tracks",
+	# "img/train-tracks",
 ))
-SEED_START = 7
+SEED_START = 32
 GRID_SIZE = 7
 MINI_GRID_FACTOR = 4
 WINDOW_EDGE_SIZE = 512 * 2
@@ -153,7 +153,7 @@ class ProtoTile:
 			image=self.image,
 			image_tk=self.image_tk,
 			image_tk_mini=self.image_tk_mini,
-			edges=deepcopy(self.edges)
+			edges=self.edges
 		)
 
 	def __hash__(self):
