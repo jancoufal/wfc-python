@@ -1,8 +1,11 @@
 import logging
 import operator
 import os
+import time
 import random
 import tkinter as tk
+from datetime import timedelta
+from copy import deepcopy
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from enum import Enum
@@ -24,7 +27,7 @@ IMAGE_DIRECTORY = random.choice((
 	"img/train-tracks",
 ))
 SEED_START = 32
-GRID_SIZE = 7
+GRID_SIZE = 64
 MINI_GRID_FACTOR = 4
 WINDOW_EDGE_SIZE = 512 * 2
 WINDOW_PADDING = 8
@@ -144,7 +147,7 @@ class ProtoTile:
 			image=image,
 			image_tk=ImageTk.PhotoImage(image),
 			image_tk_mini=ImageTk.PhotoImage(image.resize(mini_image_size)),
-			edges=edges
+			edges=deepcopy(edges)
 		)
 
 	def make_copy(self) -> "ProtoTile":
@@ -236,7 +239,7 @@ class TileState:
 		return f"\u2316: {self.position}, #: {len(self.available_tiles)}, collapsed: {self.is_collapsed}"
 
 
-class TileBoardEventListener(object):
+class DebugTileBoardEventListener(object):
 	def __init__(self, logger: logging.Logger, canvas: tk.Canvas, canvas_size: Vec2i, tile_size: Vec2i, wait_hook: None | tk.IntVar):
 		self._l = logger
 		self._canvas = canvas
@@ -345,9 +348,10 @@ class TileBoardEventListenerSimple(object):
 	def __init__(self, canvas: tk.Canvas, tile_size: Vec2i):
 		self._canvas = canvas
 		self._tile_size = tile_size
+		self._start_time = time.time()
 
 	def on_start(self, board: list[TileState], board_size: Vec2i) -> None:
-		pass
+		self._start_time = time.time()
 
 	def on_finish(self, board: list[TileState]) -> None:
 		self._canvas.delete("all")
@@ -357,6 +361,7 @@ class TileBoardEventListenerSimple(object):
 				anchor=tk.NW,
 				image=tile.get_collapsed_tile.image_tk
 			)
+		logging.info(f"board generated in {timedelta(seconds=(time.time() - self._start_time))!s}")
 
 	def on_single_loop_start(self, board: list[TileState]) -> None:
 		pass
@@ -399,7 +404,7 @@ class TileBoard(object):
 		TileEdge.LEFT: TileEdge.RIGHT,
 	}
 
-	def __init__(self, board_size: Vec2i, tiles: Tuple[ProtoTile, ...], event_listener: TileBoardEventListener):
+	def __init__(self, board_size: Vec2i, tiles: Tuple[ProtoTile, ...], event_listener: DebugTileBoardEventListener):
 		self._board_size = board_size
 		self._proto_tiles = tiles
 		self._board = []
@@ -506,7 +511,7 @@ class TkApp(tk.Tk):
 		self._tile_factory = TileFactory(IMAGE_EDGE_SIZE)
 
 		if DEBUG_MODE:
-			self.event_listener = TileBoardEventListener(
+			self.event_listener = DebugTileBoardEventListener(
 				logging.getLogger("TkApp"),
 				self.canvas,
 				self.canvas_size,
