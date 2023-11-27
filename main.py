@@ -11,8 +11,8 @@ from collections import defaultdict, deque
 from pathlib import Path
 from PIL import Image, ImageTk
 
-DEBUG_MODE = True
-GRID_SIZE = 16
+DEBUG_MODE = False
+GRID_SIZE = 16 * 4
 MINI_GRID_FACTOR = 4
 WINDOW_EDGE_SIZE = 512 * 2
 WINDOW_PADDING = 8
@@ -330,6 +330,48 @@ class TileBoardEventListener(object):
 		self._canvas.update()
 
 
+class TileBoardEventListenerSimple(object):
+	def __init__(self, canvas: tkinter.Canvas, tile_size: Vec2i):
+		self._canvas = canvas
+		self._tile_size = tile_size
+
+	def on_start(self, board: list[TileState], board_size: Vec2i) -> None:
+		pass
+
+	def on_finish(self, board: list[TileState]) -> None:
+		self._canvas.delete("all")
+		for tile in board:
+			self._canvas.create_image(
+				*(tile.position * self._tile_size).as_tuple(),
+				anchor=tk.NW,
+				image=tile.get_collapsed_tile.image_tk
+			)
+
+	def on_single_loop_start(self, board: list[TileState]) -> None:
+		pass
+
+	def on_single_loop_end(self, board: list[TileState]) -> None:
+		pass
+
+	def on_find_tiles_with_least_available_tiles(self, board: list[TileState], tiles: list[TileState]) -> None:
+		pass
+
+	def on_random_tile_picked(self, board: list[TileState], tile: TileState) -> None:
+		pass
+
+	def on_tile_collapse(self, board: list[TileState], tile: TileState) -> None:
+		pass
+
+	def on_neighbor_propagate_start(self, board: list[TileState], tile: TileState, back_trace: deque[TileState]) -> None:
+		pass
+
+	def on_neighbor_tiles_pruned(self, board: list[TileState], tile: TileState, number_of_pruned_tiles: int, back_trace: deque[TileState]) -> None:
+		pass
+
+	def on_neighbor_propagate_finish(self, board: list[TileState], tile: TileState, back_trace: deque[TileState]) -> None:
+		pass
+
+
 class TileBoard(object):
 
 	_POSITION_MOVE_UNSAFE = {
@@ -384,6 +426,7 @@ class TileBoard(object):
 
 				self._event_listener.on_single_loop_end(self._board)
 
+			self._event_listener.on_finish(self._board)
 			logging.info(f"board finished in {step_counter} steps")
 		except Exception as e:
 			logging.error(e)
@@ -448,33 +491,36 @@ class TkApp(tk.Tk):
 		self.canvas.bind("<Button-1>", self.on_canvas_click)
 
 		self._tile_factory = TileFactory(IMAGE_EDGE_SIZE)
-		# self.tiles = self._tile_factory.generate_tiles("img/mountains", [
-		# 	InputTile("blank.png", "A", "A", "A", "A"),
-		# 	InputTile("down.png", "A", "B", "B", "B"),
-		# ])
-		self.tiles = self._tile_factory.generate_tiles("img/circuit", [
-			InputTile("0.png", "AAA", "AAA", "AAA", "AAA"),
-			InputTile("1.png", "BBB", "BBB", "BBB", "BBB"),
-			InputTile("2.png", "BBB", "BCB", "BBB", "BBB"),
-			InputTile("3.png", "BBB", "BDB", "BBB", "BDB"),
-			InputTile("4.png", "ABB", "BCB", "BBA", "AAA"),
-			InputTile("5.png", "ABB", "BBB", "BBB", "BBA"),
-			InputTile("6.png", "BBB", "BCB", "BBB", "BCB"),
-			InputTile("7.png", "BDB", "BCB", "BDB", "BCB"),
-			InputTile("8.png", "BDB", "BBB", "BCB", "BBB"),
-			InputTile("9.png", "BCB", "BCB", "BBB", "BCB"),
-			InputTile("10.png", "BCB", "BCB", "BCB", "BCB"),
-			InputTile("11.png", "BCB", "BCB", "BBB", "BBB"),
-			InputTile("12.png", "BBB", "BCB", "BBB", "BCB"),
-		])
 
-		self.event_listener = TileBoardEventListener(
-			logging.getLogger("TkApp"),
-			self.canvas,
-			self.canvas_size,
-			Vec2i(IMAGE_EDGE_SIZE, IMAGE_EDGE_SIZE),
-			None  # self._tk_click_event
-		)
+		if DEBUG_MODE:
+			self.tiles = self._tile_factory.generate_tiles("img/mountains", [
+				InputTile("blank.png", "A", "A", "A", "A"),
+				InputTile("down.png", "A", "B", "B", "B"),
+			])
+			self.event_listener = TileBoardEventListener(
+				logging.getLogger("TkApp"),
+				self.canvas,
+				self.canvas_size,
+				Vec2i(IMAGE_EDGE_SIZE, IMAGE_EDGE_SIZE),
+				None  # self._tk_click_event
+			)
+		else:
+			self.event_listener = TileBoardEventListenerSimple(self.canvas, Vec2i(IMAGE_EDGE_SIZE, IMAGE_EDGE_SIZE))
+			self.tiles = self._tile_factory.generate_tiles("img/circuit", [
+				InputTile("0.png", "AAA", "AAA", "AAA", "AAA"),
+				InputTile("1.png", "BBB", "BBB", "BBB", "BBB"),
+				InputTile("2.png", "BBB", "BCB", "BBB", "BBB"),
+				InputTile("3.png", "BBB", "BDB", "BBB", "BDB"),
+				InputTile("4.png", "ABB", "BCB", "BBA", "AAA"),
+				InputTile("5.png", "ABB", "BBB", "BBB", "BBA"),
+				InputTile("6.png", "BBB", "BCB", "BBB", "BCB"),
+				InputTile("7.png", "BDB", "BCB", "BDB", "BCB"),
+				InputTile("8.png", "BDB", "BBB", "BCB", "BBB"),
+				InputTile("9.png", "BCB", "BCB", "BBB", "BCB"),
+				InputTile("10.png", "BCB", "BCB", "BCB", "BCB"),
+				InputTile("11.png", "BCB", "BCB", "BBB", "BBB"),
+				InputTile("12.png", "BBB", "BCB", "BBB", "BCB"),
+			])
 
 		self.board = TileBoard(Vec2i(GRID_SIZE, GRID_SIZE), tuple(self.tiles), self.event_listener)
 		# self.build_board()  # press 's'
