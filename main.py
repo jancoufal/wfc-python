@@ -1,4 +1,5 @@
 import logging
+import os
 import tkinter
 import random
 import tkinter as tk
@@ -11,11 +12,20 @@ from collections import defaultdict, deque
 from pathlib import Path
 from PIL import Image, ImageTk
 
-DEBUG_MODE = False
-IMAGE_DIRECTORY = "img/simple/train-tracks"
-# IMAGE_DIRECTORY = "img/circuit-coding-train"
-IMAGE_DIRECTORY_SIMPLE_IMAGES = True
-GRID_SIZE = 16
+DEBUG_MODE = True
+IMAGE_DIRECTORY = random.choice((
+	"img/circuit",
+	"img/circuit-coding-train",
+	"img/demo",
+	"img/mountains",
+	"img/pipes",
+	"img/polka",
+	"img/rail",
+	"img/roads",
+	"img/train-tracks",
+))
+SEED_START = 7
+GRID_SIZE = 7
 MINI_GRID_FACTOR = 4
 WINDOW_EDGE_SIZE = 512 * 2
 WINDOW_PADDING = 8
@@ -482,6 +492,8 @@ class TkApp(tk.Tk):
 	def __init__(self):
 		super().__init__()
 
+		self._seed = SEED_START
+
 		self._tk_click_event = tk.IntVar()
 		self.bind("<Escape>", lambda _: self.destroy())
 		self.bind("<KeyRelease>", self.on_key_release)
@@ -505,27 +517,11 @@ class TkApp(tk.Tk):
 		else:
 			self.event_listener = TileBoardEventListenerSimple(self.canvas, Vec2i(IMAGE_EDGE_SIZE, IMAGE_EDGE_SIZE))
 
-		if IMAGE_DIRECTORY_SIMPLE_IMAGES:
-			self.tiles = self._tile_factory.generate_tiles(IMAGE_DIRECTORY, [
-				InputTile("blank.png", "A", "A", "A", "A"),
-				InputTile("down.png", "A", "B", "B", "B"),
-			])
-		else:
-			self.tiles = self._tile_factory.generate_tiles(IMAGE_DIRECTORY, [
-				InputTile("0.png", "AAA", "AAA", "AAA", "AAA"),
-				InputTile("1.png", "BBB", "BBB", "BBB", "BBB"),
-				InputTile("2.png", "BBB", "BCB", "BBB", "BBB"),
-				InputTile("3.png", "BBB", "BDB", "BBB", "BDB"),
-				InputTile("4.png", "ABB", "BCB", "BBA", "AAA"),
-				InputTile("5.png", "ABB", "BBB", "BBB", "BBA"),
-				InputTile("6.png", "BBB", "BCB", "BBB", "BCB"),
-				InputTile("7.png", "BDB", "BCB", "BDB", "BCB"),
-				InputTile("8.png", "BDB", "BBB", "BCB", "BBB"),
-				InputTile("9.png", "BCB", "BCB", "BBB", "BCB"),
-				InputTile("10.png", "BCB", "BCB", "BCB", "BCB"),
-				InputTile("11.png", "BCB", "BCB", "BBB", "BBB"),
-				InputTile("12.png", "BBB", "BCB", "BBB", "BCB"),
-			])
+		# load image directory
+		self.tiles = self._tile_factory.generate_tiles(
+			IMAGE_DIRECTORY,
+			[InputTile(f, *Path(f).stem.split("-")) for f in os.listdir(IMAGE_DIRECTORY)]
+		)
 
 		self.board = TileBoard(Vec2i(GRID_SIZE, GRID_SIZE), tuple(self.tiles), self.event_listener)
 		# self.build_board()  # press 's'
@@ -538,11 +534,15 @@ class TkApp(tk.Tk):
 	def on_key_release(self, event):
 		logging.debug(f"on_key_release: {event=}")
 		match event.char:
-			case 's': self.build_board()
+			case 's': self.build_board(+1)
+			case 'a': self.build_board(-1)
 			case 'q': self.quit()
 			case 'x': self._tk_click_event.set(1)
 
-	def build_board(self):
+	def build_board(self, seed_delta: int):
+		self._seed += seed_delta
+		self.title(f"Wave function collapse (seed: {self._seed}, tile set: {IMAGE_DIRECTORY})")
+		random.seed(self._seed)
 		self.board.build()
 
 	def update(self):
@@ -551,7 +551,7 @@ class TkApp(tk.Tk):
 
 if __name__ == "__main__":
 	logging.basicConfig(**LOGGING_CONFIG)
-	random.seed(1)
+	# random.seed(1)
 	tkApp = TkApp()
 	tkApp.mainloop()
 	logging.info("done")
