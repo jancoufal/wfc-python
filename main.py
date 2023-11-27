@@ -13,15 +13,15 @@ from PIL import Image, ImageTk
 
 DEBUG_MODE = False
 IMAGE_DIRECTORY = random.choice((
-	# "img/circuit",
-	# "img/circuit-coding-train",
-	# "img/demo",
-	# "img/mountains",
-	# "img/pipes",
-	# "img/polka",
-	# "img/rail",
+	"img/circuit",
+	"img/circuit-coding-train",
+	"img/demo",
+	"img/mountains",
+	"img/pipes",
+	"img/polka",
+	"img/rail",
 	"img/roads",
-	# "img/train-tracks",
+	"img/train-tracks",
 ))
 SEED_START = 32
 GRID_SIZE = 7
